@@ -243,8 +243,6 @@
   .pw-field input { padding-right: 68px; }
   .pw-toggle { position: absolute; right: 6px; top: 6px; height: calc(var(--tap) - 12px); padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer; font-size: .82rem; color: var(--text-dim); }
   .pw-toggle:hover { border-color: var(--primary); color: var(--text); }
-  .remember-row { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--text-dim); margin: 2px 0 14px; cursor: pointer; }
-  .remember-row input { width: 18px; height: 18px; }
 
   /* ================= อื่น ๆ ================= */
   .muted { color: var(--text-dim); }
@@ -286,7 +284,6 @@
         <input type="password" id="pw" placeholder="รหัสผ่าน Viewer" autocomplete="current-password" required>
         <button type="button" class="pw-toggle" id="pwToggle" aria-label="แสดง/ซ่อนรหัสผ่าน">แสดง</button>
       </div>
-      <label class="remember-row"><input type="checkbox" id="rememberMe"> จำการเข้าสู่ระบบในเครื่องนี้ (8 ชม.)</label>
       <button class="btn primary block" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
       <p class="hint mt" id="loginErr" style="color:var(--bad);min-height:1.2em"></p>
     </form>
@@ -483,11 +480,6 @@ function initLogin() {
     api('auth.login', { password: pw.value, role: LOGIN_ROLE })
       .then(function (d) {
         STATE.token = d.token;
-        // เก็บ token เฉพาะเมื่อผู้ใช้ติ๊ก "จำไว้" เท่านั้น
-        try {
-          if (document.getElementById('rememberMe').checked) localStorage.setItem('cctv_token', d.token);
-          else localStorage.removeItem('cctv_token');
-        } catch (e2) {}
         return bootstrap();
       })
       .catch(function (ex) {
@@ -496,20 +488,8 @@ function initLogin() {
       });
   });
 
-  // ล้าง token แบบเก่า (sessionStorage) ทิ้งเสมอ — กันค้างจากเวอร์ชันก่อน
-  try { sessionStorage.removeItem('cctv_token'); } catch (e) {}
-
-  // เข้าอัตโนมัติเฉพาะกรณีเคยติ๊ก "จำไว้" (token อยู่ใน localStorage)
-  var saved = null;
-  try { saved = localStorage.getItem('cctv_token'); } catch (e) {}
-  if (saved) {
-    STATE.token = saved;
-    document.getElementById('rememberMe').checked = true;
-    bootstrap().catch(function () {
-      STATE.token = null;
-      try { localStorage.removeItem('cctv_token'); } catch (e) {}
-    });
-  }
+  // ไม่จำ session — ล้าง token ที่อาจค้างจากเวอร์ชันก่อน ให้ถามรหัสทุกครั้ง
+  try { localStorage.removeItem('cctv_token'); sessionStorage.removeItem('cctv_token'); } catch (e) {}
 }
 
 function bootstrap() {
