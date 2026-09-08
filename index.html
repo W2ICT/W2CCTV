@@ -962,13 +962,13 @@ function reloadAssets() {
     var wrap = el('div', { class: 'table-wrap only-desktop' });
     var t = el('table', { class: 'data fixed' });
     t.innerHTML =
-      '<colgroup><col class="col-id"><col class="col-code"><col class="col-md"><col class="col-lg"><col><col class="col-sm"><col class="col-md"><col class="col-badge"></colgroup>' +
-      '<thead><tr><th>รหัส</th><th>หมายเลขพัสดุ</th><th>หมวด</th><th>ชนิด</th><th>ชื่อพัสดุ</th><th class="num">จำนวน</th><th>จุดติดตั้ง</th><th>สถานะ</th></tr></thead>';
+      '<colgroup><col class="col-code"><col class="col-md"><col><col class="col-sm"><col class="col-md"><col class="col-badge"></colgroup>' +
+      '<thead><tr><th>หมายเลขพัสดุ</th><th>หมวด</th><th>ชื่อพัสดุ</th><th class="num">จำนวน</th><th>จุดติดตั้ง</th><th>สถานะ</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (a) {
       var tr = el('tr', { onclick: function () { openAssetDetail(a.asset_id); } });
-      tr.innerHTML = '<td class="nowrap"><strong>' + esc(a.asset_id) + '</strong></td><td class="nowrap muted">' + esc(a.psu_no) + '</td><td>' + esc(a.grp) +
-        '</td><td>' + esc(a.kind) + '</td><td>' + esc(a.name) + '</td><td class="num">' + a.qty + ' ' + esc(a.unit) +
+      tr.innerHTML = '<td class="nowrap muted">' + esc(a.psu_no) + '</td><td>' + esc(a.grp) +
+        '</td><td>' + esc(a.name) + '</td><td class="num">' + a.qty + ' ' + esc(a.unit) +
         '</td><td>' + esc(a.location || '—') + '</td><td>' + assetStatusBadge(a.status) + '</td>';
       tb.appendChild(tr);
     });
