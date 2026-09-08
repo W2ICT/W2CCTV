@@ -547,7 +547,7 @@
 'use strict';
 
 /* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
-var API_URL = 'https://script.google.com/macros/s/AKfycby-e5Tung-KySi_YnYl3Qd5dwgXo6LV8Fweb6Qf1KPdFsm49QcFFkWivc3gfSJktZZg/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycby9IZF3_m20T21wg7uVmC68vhnkTUAWSs74-9Mgf6ZGERNAjTJQbhocXY1xhpeSi8Q4/exec';
 
 /* ---------- สถานะรวม ---------- */
 var STATE = {
@@ -882,7 +882,7 @@ function viewDashboard(host) {
     var typeColor = labelColorMap('camera_type', function (v) { return _camFamily({ camera_type: v, camera_subtype: '' }).bg; });
     dash.appendChild(el('div', { class: 'dash-2col' }, [
       segCard('สัดส่วนตามสถานะ', d.by_status, statusColor),
-      segCard('สัดส่วนตามประเภทกล้อง', d.by_type, typeColor),
+      segCard('สัดส่วนตามประเภทอุปกรณ์', d.by_type, typeColor),
     ]));
 
     /* ---- แยกตามหน่วยงาน ---- */
@@ -1197,8 +1197,8 @@ function openCameraDetail(id) {
     var c = d.camera;
     body.innerHTML = '';
     var dl = el('dl', { class: 'kv' });
-    [['สถานะ', labelOf('status', c.status)], ['หน่วยงาน', c.unit], ['สถานที่ติดตั้ง', c.location],
-     ['ประเภทกล้อง', labelOf('camera_type', c.camera_type)],
+    [['สถานะ', labelOf('status', c.status)], ['รหัสอุปกรณ์', c.camera_id], ['หน่วยงาน', c.unit], ['สถานที่ติดตั้ง', c.location],
+     ['ประเภทอุปกรณ์', labelOf('camera_type', c.camera_type)],
      ['ชนิดย่อย', c.camera_subtype || '—'],
      ['พิกัด GPS', c.latitude != null ? (c.latitude + ', ' + c.longitude) : '—'],
      ['หมายเหตุ', c.note || '—'], ['แก้ไขล่าสุด', fmtDateTime(c.updated_at) + ' (' + c.updated_by + ')']]
@@ -1259,6 +1259,7 @@ function openCameraForm(cam) {
     var w = el('div', { class: 'field' }, [el('label', { html: esc(label) + (req ? ' <span class="req">*</span>' : '') }), node]);
     return w;
   }
+  var idInput = el('input', { type: 'text', maxlength: '40', value: cam ? cam.camera_id : '', placeholder: 'เช่น CAM0001' });
   var selUnit = inputWithList('unit', cam ? cam.unit : '');
   var selLoc = inputWithList('location', cam ? cam.location : '');
   var selType = selectFromLookup('camera_type', cam ? cam.camera_type : '');
@@ -1268,23 +1269,29 @@ function openCameraForm(cam) {
   var lng = el('input', { type: 'number', step: 'any', placeholder: '100.663333', value: cam && cam.longitude != null ? cam.longitude : '' });
   var note = el('textarea', { placeholder: 'หมายเหตุ' }, [cam ? cam.note : '']);
 
+  if (isEdit) {
+    f.appendChild(fld('รหัสอุปกรณ์', idInput, true));
+    f.appendChild(el('p', { class: 'muted', style: 'margin:-6px 0 12px;font-size:.8rem', text: 'เปลี่ยนรหัสได้ — ระบบจะย้ายประวัติตรวจ/ซ่อมของอุปกรณ์นี้ไปใช้รหัสใหม่ให้อัตโนมัติ' }));
+  }
   f.appendChild(fld('หน่วยงาน', selUnit, true));
   f.appendChild(fld('สถานที่ติดตั้ง', selLoc, true));
-  f.appendChild(el('div', { class: 'field-row' }, [fld('ประเภทกล้อง', selType, true), fld('ชนิดย่อย', selSub)]));
+  f.appendChild(el('div', { class: 'field-row' }, [fld('ประเภทอุปกรณ์', selType, true), fld('ชนิดย่อย', selSub)]));
   f.appendChild(fld('สถานภาพใช้งาน', selStatus, true));
   f.appendChild(el('div', { class: 'field-row' }, [fld('Latitude', lat), fld('Longitude', lng)]));
   f.appendChild(fld('หมายเหตุ', note));
 
   var save = el('button', { class: 'btn primary block mt', text: isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง', onclick: function (e) {
+    if (isEdit && !idInput.value.trim()) { alert('กรุณากรอกรหัสอุปกรณ์'); return; }
     var data = {
       unit: selUnit.getVal(), location: selLoc.getVal(), camera_type: selType.value, camera_subtype: selSub.value, status: selStatus.value,
       latitude: lat.value, longitude: lng.value, note: note.value,
     };
+    if (isEdit) data.new_camera_id = idInput.value.trim();
     busy(e.target, true);
     var p = isEdit ? api('cameras.update', { camera_id: cam.camera_id, data: data }) : api('cameras.create', { data: data });
     p.then(function (saved) {
       toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มกล้องแล้ว'); closeSheet();
-      var fid = isEdit ? cam.camera_id : (saved && saved.camera_id);
+      var fid = (saved && saved.camera_id) || (isEdit ? cam.camera_id : '');
       refreshLookups().then(refreshCamFilters).then(function () { reloadCameras(fid); });
       if (_mapReady) loadCams();
     }).catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง'); alert(ex.message); });
