@@ -757,15 +757,31 @@ function viewCameras(host) {
   return reloadCameras();
 }
 function filterSelect(key, allLabel) {
-  var listName = key;
-  var s = el('select', { 'data-filter': key, onchange: function (e) { CAM_FILTER[key] = e.target.value; reloadCameras(); } });
-  s.appendChild(el('option', { value: '', text: allLabel }));
-  optionsFor(listName).forEach(function (o) {
+  var s = el('select', { 'data-filter': key, 'data-alllabel': allLabel, onchange: function (e) { CAM_FILTER[key] = e.target.value; reloadCameras(); } });
+  _fillFilterOptions(s, key);
+  return s;
+}
+function _fillFilterOptions(s, key) {
+  var cur = CAM_FILTER[key] || '';
+  s.innerHTML = '';
+  s.appendChild(el('option', { value: '', text: s.getAttribute('data-alllabel') || '— ทั้งหมด —' }));
+  optionsFor(key).forEach(function (o) {
     var op = el('option', { value: o.value, text: o.label });
-    if (CAM_FILTER[key] === o.value) op.selected = true;
+    if (o.value === cur) op.selected = true;
     s.appendChild(op);
   });
-  return s;
+  s.value = cur;
+}
+/** โหลด lookups ใหม่จากเซิร์ฟเวอร์ → อัปเดต STATE + refresh ตัวเลือกฟิลเตอร์กล้อง */
+function refreshLookups() {
+  return api('lookups.get').then(function (lk) {
+    STATE.lookups = lk;
+    STATE.labels = {};
+    Object.keys(lk).forEach(function (L2) { STATE.labels[L2] = {}; lk[L2].forEach(function (o) { STATE.labels[L2][o.value] = o.label; }); });
+    document.querySelectorAll('select[data-filter]').forEach(function (s) {
+      _fillFilterOptions(s, s.getAttribute('data-filter'));
+    });
+  }).catch(function () {});
 }
 var _lastCamRows = [];
 function camFilterSummary() {
@@ -984,7 +1000,8 @@ function openCameraForm(cam) {
     var p = isEdit ? api('cameras.update', { camera_id: cam.camera_id, data: data }) : api('cameras.create', { data: data });
     p.then(function (saved) {
       toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มกล้องแล้ว'); closeSheet();
-      reloadCameras(isEdit ? cam.camera_id : (saved && saved.camera_id));
+      var fid = isEdit ? cam.camera_id : (saved && saved.camera_id);
+      refreshLookups().then(function () { reloadCameras(fid); });
       if (STATE.view === 'map') go('map');
     }).catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง'); alert(ex.message); });
   } });
