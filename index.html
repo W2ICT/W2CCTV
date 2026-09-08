@@ -276,8 +276,10 @@
   .map-fs-btn { position: absolute; top: 10px; right: 10px; z-index: 500; }
   .leaflet-control-layers { font-size: .9rem; }
   .edit-pin i { display: block; width: 20px; height: 20px; border-radius: 50%; background: #f59e0b; border: 3px solid #fff; box-shadow: 0 0 0 3px rgba(245,158,11,.45), 0 1px 4px rgba(0,0,0,.4); }
-  .map-edit-grid select, .map-edit-grid input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); width: 100%; }
-  @media (min-width: 900px) { .map-edit-grid { grid-template-columns: minmax(280px, 1fr) auto auto; } }
+  .coord-pop { min-width: 220px; }
+  .coord-pop select { width: 100%; max-width: 260px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+  .coord-pop .btn { min-height: 34px; }
+  .leaflet-popup-content { margin: 12px 14px; }
   .bar { height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--primary); }
 </style>
@@ -1300,54 +1302,25 @@ function _mapFullscreen(wrap) {
 
 var _camLayer = null;      // layerGroup ของหมุดกล้อง
 var _editMarker = null;    // หมุดที่กำลังกำหนดพิกัด (ลากได้)
-var _editCam = '';         // camera_id ที่กำลังแก้
-var _allCams = [];         // cache กล้องทั้งหมด (สำหรับ picker)
+var _allCams = [];         // cache กล้องทั้งหมด
 
 function _statusColor(s) {
   return s === 'USABLE' ? '#16a34a' : s === 'UNUSABLE' ? '#dc2626' : s === 'REPAIRING' ? '#d97706' : '#94a3b8';
 }
+function _r6(n) { return Math.round(n * 1e6) / 1e6; }
 
 function viewMap(host) {
   host.innerHTML = '';
+  var isAdmin = STATE.role === 'admin';
+  var cntChip = el('span', { class: 'chip' });
+
   var head = el('div', { class: 'section-head' }, [
     el('h2', { text: 'แผนที่จุดติดตั้ง' }),
+    isAdmin ? cntChip : null,
     el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลาง', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ จุดกึ่งกลาง']),
   ]);
   host.appendChild(head);
-
-  // ---- แผงกำหนดพิกัด (เฉพาะ Admin) ----
-  var picker, latIn, lngIn, hint, cntEl;
-  if (STATE.role === 'admin') {
-    picker = el('select', {});
-    latIn = el('input', { type: 'number', step: 'any', placeholder: 'Latitude', style: 'min-height:38px' });
-    lngIn = el('input', { type: 'number', step: 'any', placeholder: 'Longitude', style: 'min-height:38px' });
-    hint = el('span', { class: 'muted', style: 'font-size:.85rem' });
-    cntEl = el('span', { class: 'chip' });
-
-    picker.addEventListener('change', function () { selectEditCam(picker.value); });
-    [latIn, lngIn].forEach(function (inp) {
-      inp.addEventListener('change', function () {
-        var la = parseFloat(latIn.value), ln = parseFloat(lngIn.value);
-        if (!isNaN(la) && !isNaN(ln)) placeEditMarker(la, ln, false);
-      });
-    });
-
-    var panel = el('div', { class: 'card', style: 'margin-bottom:12px' }, [
-      el('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px' }, [
-        el('strong', { text: '📍 กำหนดพิกัดกล้อง' }), cntEl,
-      ]),
-      el('div', { style: 'display:grid;gap:8px;grid-template-columns:1fr;align-items:center', class: 'map-edit-grid' }, [
-        picker,
-        el('div', { style: 'display:flex;gap:8px' }, [latIn, lngIn]),
-        el('div', { class: 'chip-row' }, [
-          el('button', { class: 'btn primary sm', onclick: saveEditCoords }, ['💾 บันทึกพิกัด']),
-          el('button', { class: 'btn sm', onclick: function () { if (_editCam && confirm('ลบพิกัดของ ' + _editCam + ' ?')) saveEditCoords(true); } }, ['ลบพิกัด']),
-        ]),
-      ]),
-      el('div', { class: 'mt' }, [hint]),
-    ]);
-    host.appendChild(panel);
-  }
+  if (isAdmin) host.appendChild(el('p', { class: 'muted', style: 'margin:0 0 10px', text: '📍 คลิกบนแผนที่ตรงตำแหน่งกล้อง → เลือกกล้องในป๊อปอัป → บันทึก  (หรือคลิกหมุดกล้องเดิม ▸ ✎ ย้ายพิกัด)' }));
 
   var mapWrap = el('div', { class: 'map-wrap' }, [
     el('div', { id: 'map' }),
@@ -1369,82 +1342,80 @@ function viewMap(host) {
     document.addEventListener('webkitfullscreenchange', onFsChange);
   }
 
-  /* ---------- ฟังก์ชันภายใน ---------- */
-  function refreshPicker() {
-    if (!picker) return;
+  /* ---------- ภายใน ---------- */
+  function updateCounter() {
+    if (!isAdmin) return;
+    var has = _allCams.filter(function (c) { return c.latitude != null; }).length;
+    cntChip.textContent = 'มีพิกัดแล้ว ' + has + ' / ทั้งหมด ' + _allCams.length;
+  }
+
+  function reloadCams() {
+    return api('cameras.list', { filters: {} }).then(function (rows) {
+      _allCams = rows; STATE.cameras = rows; plotCameras(); updateCounter();
+    });
+  }
+
+  function buildPicker(sel, preset) {
     var none = _allCams.filter(function (c) { return c.latitude == null; });
     var has = _allCams.filter(function (c) { return c.latitude != null; });
-    cntEl.textContent = 'มีพิกัดแล้ว ' + has.length + ' / ทั้งหมด ' + _allCams.length;
-    picker.innerHTML = '';
-    picker.appendChild(el('option', { value: '', text: '— เลือกกล้องเพื่อกำหนดพิกัด —' }));
+    sel.innerHTML = '';
+    sel.appendChild(el('option', { value: '', text: '— เลือกกล้อง —' }));
     function grp(label, arr) {
       if (!arr.length) return;
       var g = document.createElement('optgroup'); g.label = label;
       arr.forEach(function (c) {
         g.appendChild(el('option', { value: c.camera_id, text: c.camera_id + ' · ' + c.location + ' (' + labelOf('camera_type', c.camera_type) + ')' }));
       });
-      picker.appendChild(g);
+      sel.appendChild(g);
     }
     grp('ยังไม่มีพิกัด (' + none.length + ')', none);
     grp('มีพิกัดแล้ว (' + has.length + ')', has);
-    if (_editCam) picker.value = _editCam;
+    if (preset) sel.value = preset;
   }
 
-  function selectEditCam(id) {
-    _editCam = id || '';
+  function clearEditMarker() {
     if (_editMarker) { _map.removeLayer(_editMarker); _editMarker = null; }
-    if (!_editCam) { latIn.value = ''; lngIn.value = ''; hint.textContent = ''; return; }
-    var c = _allCams.filter(function (x) { return x.camera_id === _editCam; })[0];
-    if (c && c.latitude != null) {
-      placeEditMarker(c.latitude, c.longitude, true);
-      hint.textContent = 'ลากหมุดสีส้ม หรือคลิกบนแผนที่เพื่อย้ายจุด แล้วกด "บันทึกพิกัด"';
-    } else {
-      latIn.value = ''; lngIn.value = '';
-      hint.textContent = 'คลิกบนแผนที่ตรงตำแหน่งกล้อง เพื่อวางหมุด แล้วกด "บันทึกพิกัด"';
-    }
   }
 
-  function placeEditMarker(lat, lng, doPan) {
-    lat = Math.round(lat * 1e6) / 1e6; lng = Math.round(lng * 1e6) / 1e6;
-    latIn.value = lat; lngIn.value = lng;
+  function openCoordPopup(latlng, presetCam) {
+    var lat = _r6(latlng.lat), lng = _r6(latlng.lng);
+    var icon = L.divIcon({ className: 'edit-pin', html: '<i></i>', iconSize: [26, 26], iconAnchor: [13, 13] });
     if (!_editMarker) {
-      var icon = L.divIcon({ className: 'edit-pin', html: '<i></i>', iconSize: [26, 26], iconAnchor: [13, 13] });
       _editMarker = L.marker([lat, lng], { draggable: true, icon: icon, zIndexOffset: 1000 }).addTo(_map);
       _editMarker.on('dragend', function () {
         var p = _editMarker.getLatLng();
-        placeEditMarker(p.lat, p.lng, false);
+        if (_editMarker._coordLine) _editMarker._coordLine.textContent = _r6(p.lat) + ', ' + _r6(p.lng);
       });
+      _editMarker.on('popupclose', function () { setTimeout(clearEditMarker, 10); });
     } else {
       _editMarker.setLatLng([lat, lng]);
     }
-    if (doPan) _map.setView([lat, lng], Math.max(_map.getZoom(), 18));
-  }
 
-  function saveEditCoords(clear) {
-    if (!_editCam) { toast('เลือกกล้องก่อน'); return; }
-    var data;
-    if (clear === true) {
-      data = { latitude: '', longitude: '' };
-    } else {
-      var la = parseFloat(latIn.value), ln = parseFloat(lngIn.value);
-      if (isNaN(la) || isNaN(ln)) { toast('ยังไม่มีพิกัด — คลิกบนแผนที่ก่อน'); return; }
-      data = { latitude: la, longitude: ln };
-    }
-    hint.textContent = 'กำลังบันทึก…';
-    api('cameras.update', { camera_id: _editCam, data: data })
-      .then(function () {
-        toast(clear === true ? 'ลบพิกัดแล้ว' : 'บันทึกพิกัด ' + _editCam + ' แล้ว');
-        var keep = _editCam;
-        return api('cameras.list', { filters: {} }).then(function (rows) {
-          _allCams = rows; STATE.cameras = rows;
-          plotCameras();
-          _editCam = (clear === true) ? '' : keep;
-          if (clear === true && _editMarker) { _map.removeLayer(_editMarker); _editMarker = null; }
-          refreshPicker();
-          if (_editCam) selectEditCam(_editCam); else { latIn.value = ''; lngIn.value = ''; hint.textContent = ''; }
-        });
-      })
-      .catch(function (ex) { hint.textContent = ''; alert(ex.message); });
+    var node = el('div', { class: 'coord-pop' });
+    var sel = el('select', {});
+    buildPicker(sel, presetCam);
+    var coordLine = el('div', { class: 'muted', style: 'font-size:.82rem;margin:6px 0', text: lat + ', ' + lng });
+    _editMarker._coordLine = coordLine;
+    var saveB = el('button', { class: 'btn primary sm', onclick: function () {
+      var id = sel.value;
+      if (!id) { toast('เลือกกล้องก่อน'); return; }
+      var p = _editMarker.getLatLng();
+      saveB.disabled = true; saveB.textContent = '…';
+      api('cameras.update', { camera_id: id, data: { latitude: _r6(p.lat), longitude: _r6(p.lng) } })
+        .then(function () { toast('บันทึกพิกัด ' + id + ' แล้ว'); return reloadCams(); })
+        .then(function () { clearEditMarker(); })
+        .catch(function (ex) { saveB.disabled = false; saveB.textContent = 'บันทึก'; alert(ex.message); });
+    } }, ['บันทึก']);
+    var cancelB = el('button', { class: 'btn sm', onclick: function () { clearEditMarker(); } }, ['ยกเลิก']);
+
+    node.appendChild(el('div', { style: 'font-weight:700;margin-bottom:4px', text: 'กำหนดพิกัดให้กล้อง' }));
+    node.appendChild(sel);
+    node.appendChild(coordLine);
+    node.appendChild(el('div', { class: 'chip-row' }, [saveB, cancelB]));
+    L.DomEvent.disableClickPropagation(node);
+    L.DomEvent.disableScrollPropagation(node);
+
+    _editMarker.bindPopup(node, { minWidth: 240, maxWidth: 300 }).openPopup();
   }
 
   function plotCameras() {
@@ -1456,11 +1427,11 @@ function viewMap(host) {
       withGeo++;
       var mk = L.circleMarker([c.latitude, c.longitude], { radius: 8, color: '#fff', weight: 2, fillColor: _statusColor(c.status), fillOpacity: 1, bubblingMouseEvents: false });
       mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)) +
-        (STATE.role === 'admin' ? '<br><a href="#" onclick="return false" data-editcam="' + esc(c.camera_id) + '">✎ ย้ายพิกัด</a>' : ''));
-      if (STATE.role === 'admin') {
+        (isAdmin ? '<br><a href="#" onclick="return false" data-editcam="1">✎ ย้ายพิกัด</a>' : ''));
+      if (isAdmin) {
         mk.on('popupopen', function (ev) {
           var a = ev.popup.getElement().querySelector('[data-editcam]');
-          if (a) a.addEventListener('click', function () { picker.value = c.camera_id; selectEditCam(c.camera_id); _map.closePopup(); });
+          if (a) a.addEventListener('click', function () { _map.closePopup(); openCoordPopup(mk.getLatLng(), c.camera_id); });
         });
       }
       _camLayer.addLayer(mk);
@@ -1475,7 +1446,7 @@ function viewMap(host) {
     _allCams = rows; STATE.cameras = rows;
     setTimeout(function () {
       if (_map) { _map.remove(); _map = null; }
-      _camLayer = null; _editMarker = null; _editCam = '';
+      _camLayer = null; _editMarker = null;
       _map = L.map('map', { zoomControl: true, maxZoom: 22 });
 
       var GOOGLE_SUBS = ['mt0', 'mt1', 'mt2', 'mt3'];
@@ -1495,15 +1466,12 @@ function viewMap(host) {
       L.circleMarker(MAP_CENTER, { radius: 7, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 0.9, bubblingMouseEvents: false })
         .addTo(_map).bindPopup('<b>จุดกึ่งกลางฐานบิน</b><br>' + MAP_CENTER_LABEL);
 
-      if (STATE.role === 'admin') {
-        _map.on('click', function (e) {
-          if (!_editCam) { toast('เลือกกล้องจากช่องด้านบนก่อน'); return; }
-          placeEditMarker(e.latlng.lat, e.latlng.lng, false);
-        });
+      if (isAdmin) {
+        _map.on('click', function (e) { openCoordPopup(e.latlng, null); });
       }
 
       plotCameras();
-      refreshPicker();
+      updateCounter();
       _map.invalidateSize();
     }, 50);
   });
