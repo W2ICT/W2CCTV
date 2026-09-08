@@ -164,6 +164,8 @@
   table.data tbody tr:nth-child(even) td { background: var(--surface-2); }
   table.data tbody tr:hover td { background: var(--muted-bg); }
   table.data tbody tr:last-child td { border-bottom: 0; }
+  .row-flash td, .row-card.row-flash { animation: rowflash 1.8s ease-out 1; }
+  @keyframes rowflash { 0%, 30% { background: rgba(37,99,235,.28); } 100% { background: transparent; } }
 
   /* คอลัมน์กำหนดความกว้าง (table-layout: fixed) */
   table.data.fixed { table-layout: fixed; }
@@ -776,7 +778,7 @@ function camFilterSummary() {
   if (CAM_FILTER.status) parts.push('สถานะ: ' + labelOf('status', CAM_FILTER.status));
   return parts.length ? parts.join(' · ') : 'ทั้งหมด (ไม่กรอง)';
 }
-function reloadCameras() {
+function reloadCameras(focusId) {
   var box = document.getElementById('camResult');
   if (!box) return Promise.resolve();
   return api('cameras.list', { filters: CAM_FILTER }).then(function (rows) {
@@ -789,7 +791,7 @@ function reloadCameras() {
     // มือถือ: การ์ด
     var mob = el('div', { class: 'list only-mobile' });
     rows.forEach(function (c) {
-      mob.appendChild(el('div', { class: 'row-card', onclick: function () { openCameraDetail(c.camera_id); } }, [
+      mob.appendChild(el('div', { class: 'row-card', 'data-cam': c.camera_id, onclick: function () { openCameraDetail(c.camera_id); } }, [
         el('div', { class: 'r1', html: '<span class="id">' + esc(c.camera_id) + '</span> ' + statusBadge(c.status) }),
         el('div', { class: 'sub', text: c.location + ' · ' + labelOf('camera_type', c.camera_type) }),
         el('div', { class: 'sub', text: c.unit }),
@@ -805,7 +807,7 @@ function reloadCameras() {
       '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท</th><th>ชนิดย่อย</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (c) {
-      var tr = el('tr', { onclick: function () { openCameraDetail(c.camera_id); } });
+      var tr = el('tr', { 'data-cam': c.camera_id, onclick: function () { openCameraDetail(c.camera_id); } });
       var geo = c.latitude != null ? (Math.round(c.latitude * 1e5) / 1e5 + ', ' + Math.round(c.longitude * 1e5) / 1e5) : '—';
       tr.innerHTML = '<td class="nowrap"><strong>' + esc(c.camera_id) + '</strong></td><td>' + esc(c.unit) + '</td><td>' + esc(c.location) +
         '</td><td class="nowrap">' + esc(labelOf('camera_type', c.camera_type)) + '</td><td class="nowrap muted">' + esc(c.camera_subtype || '—') +
@@ -814,6 +816,21 @@ function reloadCameras() {
       tb.appendChild(tr);
     });
     t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
+
+    // เลื่อนไปที่แถวที่เพิ่งแก้ (ไม่ต้องเลื่อนหาใหม่ทุกครั้ง)
+    if (focusId) {
+      var targets = box.querySelectorAll('[data-cam="' + focusId + '"]');
+      var vis = null;
+      targets.forEach(function (x) { if (x.offsetParent !== null) vis = x; });
+      if (vis) {
+        try { vis.scrollIntoView({ block: 'center' }); } catch (e) { vis.scrollIntoView(); }
+        vis.classList.add('row-flash');
+        setTimeout(function () { vis.classList.remove('row-flash'); }, 1800);
+      }
+    } else {
+      var w = box.querySelector('.table-wrap');
+      if (w) w.scrollTop = 0;
+    }
   });
 }
 
@@ -965,8 +982,11 @@ function openCameraForm(cam) {
     };
     busy(e.target, true);
     var p = isEdit ? api('cameras.update', { camera_id: cam.camera_id, data: data }) : api('cameras.create', { data: data });
-    p.then(function () { toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มกล้องแล้ว'); closeSheet(); reloadCameras(); if (STATE.view === 'map') go('map'); })
-      .catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง'); alert(ex.message); });
+    p.then(function (saved) {
+      toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มกล้องแล้ว'); closeSheet();
+      reloadCameras(isEdit ? cam.camera_id : (saved && saved.camera_id));
+      if (STATE.view === 'map') go('map');
+    }).catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง'); alert(ex.message); });
   } });
   f.appendChild(save);
   openSheet(isEdit ? ('แก้ไข ' + cam.camera_id) : 'เพิ่มกล้องใหม่', f, { sticky: true });
@@ -1048,7 +1068,7 @@ function astFilterSelect(key, allLabel, listName) {
   return s;
 }
 
-function reloadAssets() {
+function reloadAssets(focusId) {
   var box = document.getElementById('astResult');
   if (!box) return Promise.resolve();
   return api('assets.list', { filters: AST_FILTER }).then(function (rows) {
@@ -1059,7 +1079,7 @@ function reloadAssets() {
 
     var mob = el('div', { class: 'list only-mobile' });
     rows.forEach(function (a) {
-      mob.appendChild(el('div', { class: 'row-card', onclick: function () { openAssetDetail(a.asset_id); } }, [
+      mob.appendChild(el('div', { class: 'row-card', 'data-cam': a.asset_id, onclick: function () { openAssetDetail(a.asset_id); } }, [
         el('div', { class: 'r1', html: '<span class="id">' + esc(a.asset_id) + '</span> ' + assetStatusBadge(a.status) }),
         el('div', { class: 'sub', text: a.name }),
         el('div', { class: 'sub', text: (a.location || 'คลัง') + ' · ' + a.qty + ' ' + a.unit + (a.serial_no ? ' · SN ' + a.serial_no : '') }),
@@ -1074,13 +1094,27 @@ function reloadAssets() {
       '<thead><tr><th>หมายเลขพัสดุ</th><th>หมวด</th><th>ชื่อพัสดุ</th><th class="num">จำนวน</th><th>จุดติดตั้ง</th><th>สถานะ</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (a) {
-      var tr = el('tr', { onclick: function () { openAssetDetail(a.asset_id); } });
+      var tr = el('tr', { 'data-cam': a.asset_id, onclick: function () { openAssetDetail(a.asset_id); } });
       tr.innerHTML = '<td class="nowrap muted">' + esc(a.psu_no) + '</td><td class="nowrap">' + esc(a.grp) +
         '</td><td>' + esc(a.name) + '</td><td class="num">' + a.qty + ' ' + esc(a.unit) +
         '</td><td class="nowrap">' + esc(a.location || '—') + '</td><td>' + assetStatusBadge(a.status) + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
+
+    if (focusId) {
+      var targets = box.querySelectorAll('[data-cam="' + focusId + '"]');
+      var vis = null;
+      targets.forEach(function (x) { if (x.offsetParent !== null) vis = x; });
+      if (vis) {
+        try { vis.scrollIntoView({ block: 'center' }); } catch (e) { vis.scrollIntoView(); }
+        vis.classList.add('row-flash');
+        setTimeout(function () { vis.classList.remove('row-flash'); }, 1800);
+      }
+    } else {
+      var w = box.querySelector('.table-wrap');
+      if (w) w.scrollTop = 0;
+    }
   });
 }
 
@@ -1142,7 +1176,7 @@ function openAssetForm(asset) {
     };
     busy(e.target, true);
     var pr = isEdit ? api('assets.update', { asset_id: asset.asset_id, data: data }) : api('assets.create', { data: data });
-    pr.then(function () { toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มพัสดุแล้ว'); closeSheet(); reloadAssets(); })
+    pr.then(function (saved) { toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มพัสดุแล้ว'); closeSheet(); reloadAssets(isEdit ? asset.asset_id : (saved && saved.asset_id)); })
       .catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มพัสดุ'); alert(ex.message); });
   } }));
   openSheet(isEdit ? ('แก้ไข ' + asset.asset_id) : 'เพิ่มพัสดุ', f, { sticky: true });
@@ -1520,16 +1554,23 @@ function viewMap(host) {
     var lat = _r6(latlng.lat), lng = _r6(latlng.lng);
     _editCamId = presetCam || '';
     plotCameras();  // ซ่อนหมุดปกติของกล้องที่กำลังแก้ ให้เหลือแต่หมุดส้มลากได้
-    var icon = L.divIcon({ className: 'edit-pin', html: '<i></i>', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -20] });
+    var icon = L.divIcon({ className: 'edit-pin', html: '<i></i>', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -24] });
     if (!_editMarker) {
-      _editMarker = L.marker([lat, lng], { draggable: true, icon: icon, zIndexOffset: 1000 }).addTo(_map);
-      _editMarker.on('dragend', function () {
+      _editMarker = L.marker([lat, lng], {
+        draggable: true, autoPan: true, icon: icon, zIndexOffset: 2000, riseOnHover: true,
+      }).addTo(_map);
+      if (_editMarker.dragging) _editMarker.dragging.enable();
+      var syncLine = function () {
         var p = _editMarker.getLatLng();
         if (_editMarker._coordLine) _editMarker._coordLine.textContent = _r6(p.lat) + ', ' + _r6(p.lng);
-      });
-      _editMarker.on('popupclose', function () { setTimeout(clearEditMarker, 10); });
+      };
+      _editMarker.on('drag', syncLine);
+      // Leaflet ปิดป๊อปอัปเองตอนเริ่มลาก → พอปล่อยแล้วเปิดใหม่ที่จุดใหม่
+      _editMarker.on('dragend', function () { syncLine(); _editMarker.openPopup(); });
+      // ไม่ผูก popupclose กับการลบหมุด (กด × แค่ซ่อนป๊อปอัป คลิกหมุดเพื่อเปิดใหม่ได้)
     } else {
       _editMarker.setLatLng([lat, lng]);
+      if (_editMarker.dragging) _editMarker.dragging.enable();
     }
 
     var node = el('div', { class: 'coord-pop' });
@@ -1566,7 +1607,7 @@ function viewMap(host) {
     L.DomEvent.disableClickPropagation(node);
     L.DomEvent.disableScrollPropagation(node);
 
-    _editMarker.bindPopup(node, { minWidth: 240, maxWidth: 300 }).openPopup();
+    _editMarker.bindPopup(node, { minWidth: 240, maxWidth: 300, closeOnClick: false, autoClose: false, closeButton: true }).openPopup();
   }
 
   function plotCameras() {
@@ -1627,7 +1668,17 @@ function viewMap(host) {
         .addTo(_map).bindPopup('<b>จุดกึ่งกลางฐานบิน</b><br>' + MAP_CENTER_LABEL);
 
       if (isAdmin) {
-        _map.on('click', function (e) { openCoordPopup(e.latlng, null); });
+        _map.on('click', function (e) {
+          if (_editMarker) {
+            // กำลังแก้พิกัดอยู่ → คลิกแผนที่ = ย้ายหมุดไปจุดที่คลิก (ไม่รีเซ็ตกล้องที่เลือก)
+            _editMarker.setLatLng(e.latlng);
+            var p = _editMarker.getLatLng();
+            if (_editMarker._coordLine) _editMarker._coordLine.textContent = _r6(p.lat) + ', ' + _r6(p.lng);
+            if (!_editMarker.isPopupOpen()) _editMarker.openPopup();
+            return;
+          }
+          openCoordPopup(e.latlng, null);
+        });
       }
 
       plotCameras();
