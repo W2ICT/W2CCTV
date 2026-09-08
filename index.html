@@ -1428,6 +1428,44 @@ var MAP_CENTER = [14.874667, 100.663333];
 var MAP_ZOOM = 15;
 var MAP_CENTER_LABEL = "14°52.480'N 100°39.800'E";
 
+/* ---------- ส่งออก KML (พิกัดกล้อง — เปิดใน Google Earth / Maps) ---------- */
+function _kmlColor(status) {
+  // KML สี = aabbggrr (alpha, blue, green, red)
+  return ({ USABLE: 'ff16a316', UNUSABLE: 'ff2626dc', REPAIRING: 'ff0679d9', PENDING_INSTALL: 'ff94b3a8', DECOMMISSIONED: 'ff8b7464' })[status] || 'ffffffff';
+}
+function _cd(s) { return String(s == null ? '' : s).replace(/]]>/g, ']] >'); }
+function exportCamerasKml() {
+  var pts = (_allCams || []).filter(function (c) { return c.latitude != null && c.longitude != null; });
+  if (!pts.length) { toast('ยังไม่มีกล้องที่กรอกพิกัด'); return; }
+  var seen = {};
+  var styles = '';
+  pts.forEach(function (c) {
+    if (seen[c.status]) return; seen[c.status] = 1;
+    styles += '<Style id="s_' + esc(c.status || 'X') + '">' +
+      '<IconStyle><color>' + _kmlColor(c.status) + '</color><scale>1.1</scale>' +
+      '<Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>' +
+      '<LabelStyle><scale>0.8</scale></LabelStyle></Style>';
+  });
+  var pm = pts.map(function (c) {
+    var sub = c.camera_subtype || labelOf('camera_type', c.camera_type);
+    return '<Placemark>' +
+      '<name>' + esc(c.camera_id) + '</name>' +
+      '<styleUrl>#s_' + esc(c.status || 'X') + '</styleUrl>' +
+      '<description><![CDATA[หน่วยงาน: ' + _cd(c.unit || '-') + '<br/>สถานที่: ' + _cd(c.location || '-') +
+      '<br/>ประเภท: ' + _cd(labelOf('camera_type', c.camera_type)) + '<br/>ชนิดย่อย: ' + _cd(sub || '-') +
+      '<br/>สถานะ: ' + _cd(labelOf('status', c.status)) + ']]></description>' +
+      '<Point><coordinates>' + Number(c.longitude) + ',' + Number(c.latitude) + ',0</coordinates></Point>' +
+      '</Placemark>';
+  }).join('');
+  var kml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>' +
+    '<name>กล้อง CCTV บน.๒ (' + pts.length + ' จุด) — ' + new Date().toLocaleString('th-TH') + '</name>' +
+    styles + pm + '</Document></kml>';
+  var stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  downloadText('cctv_cameras_' + stamp + '.kml', kml, 'application/vnd.google-earth.kml+xml;charset=utf-8');
+  toast('ดาวน์โหลด KML — ' + pts.length + ' จุด');
+}
+
 function _mapFullscreen(wrap) {
   var el2 = wrap;
   if (!document.fullscreenElement) {
@@ -1479,6 +1517,7 @@ function viewMap(host) {
   var head = el('div', { class: 'section-head' }, [
     el('h2', { text: 'แผนที่จุดติดตั้ง' }),
     isAdmin ? cntChip : null,
+    isAdmin ? el('button', { class: 'btn sm', title: 'ส่งออกพิกัดกล้องเป็นไฟล์ KML (เปิดใน Google Earth / Maps)', onclick: exportCamerasKml }, ['⬇️ KML']) : null,
     el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลาง', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ จุดกึ่งกลาง']),
   ]);
   host.appendChild(head);
