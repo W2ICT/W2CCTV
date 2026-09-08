@@ -9,12 +9,43 @@
   <style>
   /* ================= ธีม / ตัวแปรสี ================= */
   :root {
-    --bg: #f1f5f9;
+    /* ---- Dark = ค่าเริ่มต้น (โทน AIPTH-GIS) ---- */
+    --bg: #0b1220;
+    --surface: #111a2e;
+    --surface-2: #0e1626;
+    --panel: rgba(15, 23, 41, .92);
+    --border: #223049;
+    --border-soft: #1a2740;
+    --text: #e8eefc;
+    --text-dim: #93a4c3;
+    --primary: #3b82f6;
+    --primary-ink: #ffffff;
+    --ok: #34d399;
+    --ok-bg: #06331d;
+    --warn: #fbbf24;
+    --warn-bg: #3a2a05;
+    --bad: #f87171;
+    --bad-bg: #3a1414;
+    --muted-bg: #1e2b44;
+    --shadow: 0 8px 24px rgba(0, 0, 0, .45);
+    --leaflet-icon-filter: invert(1) brightness(1.7);
+    --radius: 10px;
+    --hdr-h: 56px;
+    --status-h: 30px;
+    --nav-h: 64px;
+    --tap: 42px;
+    --maxw: 1760px;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef2f7;
     --surface: #ffffff;
-    --surface-2: #f8fafc;
-    --border: #e2e8f0;
+    --surface-2: #f5f8fc;
+    --panel: rgba(255, 255, 255, .95);
+    --border: #dbe3ef;
+    --border-soft: #e7edf6;
     --text: #0f172a;
-    --text-dim: #64748b;
+    --text-dim: #5a6a86;
     --primary: #1d4ed8;
     --primary-ink: #ffffff;
     --ok: #15803d;
@@ -24,20 +55,9 @@
     --bad: #b91c1c;
     --bad-bg: #fee2e2;
     --muted-bg: #e2e8f0;
-    --shadow: 0 1px 3px rgba(15, 23, 42, .12), 0 1px 2px rgba(15, 23, 42, .06);
-    --radius: 14px;
-    --nav-h: 64px;
-    --tap: 44px;
-    --maxw: 1760px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0b1220; --surface: #121a2b; --surface-2: #0f1728; --border: #24314a;
-      --text: #e8eefc; --text-dim: #93a4c3; --primary: #3b82f6; --primary-ink: #06122b;
-      --ok: #4ade80; --ok-bg: #06331d; --warn: #fbbf24; --warn-bg: #3a2a05;
-      --bad: #f87171; --bad-bg: #3a1414; --muted-bg: #24314a;
-      --shadow: 0 1px 3px rgba(0, 0, 0, .5);
-    }
+    --shadow: 0 8px 24px rgba(15, 23, 42, .14);
+    --leaflet-icon-filter: none;
+    color-scheme: light;
   }
 
   * { box-sizing: border-box; }
@@ -55,71 +75,141 @@
   a { color: var(--primary); }
   button, input, select, textarea { font: inherit; color: inherit; }
 
-  /* ================= Layout ================= */
-  .app { display: none; min-height: 100vh; }
-  .app.ready { display: block; }
+  /* ================= Layout: Header + Map stage ================= */
+  .app { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
+  .app.ready { display: flex; }
 
-  .topbar {
-    position: sticky; top: 0; z-index: 30;
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top));
+  .hdr {
+    flex-shrink: 0; height: var(--hdr-h); z-index: 1500; position: relative;
+    display: flex; align-items: center; gap: 14px; padding: 0 12px;
     background: var(--surface); border-bottom: 1px solid var(--border);
   }
-  .topbar .title { font-weight: 700; font-size: 1.05rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .topbar .role-badge {
-    font-size: .78rem; padding: 3px 9px; border-radius: 999px;
-    background: var(--muted-bg); color: var(--text-dim);
+  .hdr-brand { display: flex; align-items: center; gap: 9px; cursor: pointer; flex-shrink: 0; padding-right: 4px; }
+  .hdr-brand .logo { font-size: 1.35rem; line-height: 1; }
+  .hdr-title { font-weight: 700; font-size: .98rem; white-space: nowrap; }
+  .hdr-sub { font-size: .72rem; color: var(--text-dim); white-space: nowrap; }
+  .hdr-menu {
+    display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0;
+    overflow-x: auto; scrollbar-width: none;
   }
-  .topbar .role-badge.admin { background: var(--primary); color: var(--primary-ink); }
-
-  .shell { display: flex; max-width: var(--maxw); margin: 0 auto; }
-
-  .icon-btn { font-size: 1.15rem; padding: 0 10px; }
-  #sideToggle { display: none; }
-
-  .sidebar { display: none; }
-  @media (min-width: 900px) {
-    #sideToggle { display: inline-flex; }
-    .sidebar {
-      display: flex; flex-direction: column; gap: 4px;
-      width: 220px; flex-shrink: 0; padding: 16px 10px;
-      position: sticky; top: 57px; align-self: flex-start; height: calc(100vh - 57px);
-      transition: width .18s ease, padding .18s ease;
-      overflow: hidden;
-    }
-    .sidebar button {
-      display: flex; align-items: center; gap: 10px;
-      padding: 11px 14px; border-radius: 10px; border: 0; background: transparent;
-      cursor: pointer; text-align: left; width: 100%; font-size: .98rem; white-space: nowrap;
-    }
-    .sidebar button .ic { font-size: 1.15rem; width: 22px; text-align: center; flex-shrink: 0; }
-    .sidebar button:hover { background: var(--surface); }
-    .sidebar button.active { background: var(--primary); color: var(--primary-ink); font-weight: 600; }
-
-    /* โหมดย่อเมนู (icon rail) */
-    .side-collapsed .sidebar { width: 60px; padding: 16px 6px; }
-    .side-collapsed .sidebar .lbl { display: none; }
-    .side-collapsed .sidebar button { justify-content: center; padding: 11px 0; }
+  .hdr-menu::-webkit-scrollbar { display: none; }
+  .tab {
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    border: 0; background: transparent; color: var(--text-dim); cursor: pointer;
+    padding: 8px 13px; border-radius: 8px; font-size: .9rem; font-weight: 600;
   }
+  .tab .ic { font-size: 1.05rem; }
+  .tab:hover { background: var(--surface-2); color: var(--text); }
+  .tab.active { background: var(--primary); color: var(--primary-ink); }
+  .hdr-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .role-badge { font-size: .72rem; padding: 3px 9px; border-radius: 999px; background: var(--muted-bg); color: var(--text-dim); white-space: nowrap; }
+  .role-badge.admin { background: var(--primary); color: var(--primary-ink); }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent;
+    color: var(--text-dim); cursor: pointer; font-size: 1.05rem;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
 
-  main { flex: 1; min-width: 0; padding: 16px 14px calc(var(--nav-h) + 28px); }
-  @media (min-width: 900px) { main { padding: 20px 28px 40px; } }
+  .stage { position: relative; flex: 1; min-height: 0; }
+  #map { position: absolute; inset: 0; background: var(--surface-2); }
+  .stage:fullscreen { background: #000; }
 
-  /* ================= Bottom nav (มือถือ) ================= */
-  .botnav {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-    display: grid; grid-template-columns: repeat(6, 1fr);
+  /* ---------- แผงควบคุมด้านซ้าย ---------- */
+  .panel {
+    position: absolute; left: 12px; top: 12px; bottom: calc(var(--status-h) + 12px); z-index: 800;
+    width: 320px; max-width: calc(100vw - 24px);
+    display: flex; flex-direction: column;
+    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+    transition: transform .22s ease, opacity .22s ease;
+  }
+  .panel-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+  .panel-sec { border-bottom: 1px solid var(--border-soft); }
+  .panel-sec:last-child { border-bottom: 0; }
+  .panel-h {
+    display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer;
+    padding: 11px 14px; font-size: .78rem; font-weight: 700; letter-spacing: .03em;
+    color: var(--text-dim); text-transform: uppercase; user-select: none;
+    position: sticky; top: 0; background: var(--panel); z-index: 1;
+  }
+  .panel-h .muted { text-transform: none; letter-spacing: 0; }
+  .panel-h .caret { margin-left: auto; transition: transform .18s ease; font-size: .7rem; }
+  .panel-sec.collapsed .caret { transform: rotate(-90deg); }
+  .panel-sec.collapsed .panel-body { display: none; }
+  .panel-body { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .panel-body select {
+    width: 100%; min-height: 38px; padding: 8px 10px; font-size: .9rem;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text);
+  }
+  .layer-btn {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px;
+    background: var(--surface-2); color: var(--text); cursor: pointer; font-size: .88rem;
+  }
+  .layer-btn:hover { border-color: var(--primary); }
+  .layer-btn.off { opacity: .38; }
+  .badge-dot {
+    width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: #fff;
+  }
+  .layer-btn .ct { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: .82rem; }
+  .cam-list { padding: 4px 8px 8px; gap: 1px; }
+  .cam-item {
+    display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px;
+    cursor: pointer; font-size: .86rem;
+  }
+  .cam-item:hover { background: var(--surface-2); }
+  .cam-item .badge-dot { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
+  .cam-item .ci-main { flex: 1; min-width: 0; }
+  .cam-item .ci-id { font-weight: 700; }
+  .cam-item .ci-sub { color: var(--text-dim); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cam-item .ci-st { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .app.panel-closed .panel { transform: translateX(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
+  .panel-open {
+    position: absolute; left: 12px; top: 12px; z-index: 800;
+    display: none; align-items: center; gap: 7px;
+    padding: 9px 14px; border: 1px solid var(--border); border-radius: 9px;
+    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    color: var(--text); cursor: pointer; font-weight: 600; font-size: .88rem; box-shadow: var(--shadow);
+  }
+  .app.panel-closed .panel-open { display: inline-flex; }
+
+  /* ---------- ปุ่มเครื่องมือบนแผนที่ ---------- */
+  .map-tools { position: absolute; right: 12px; top: 12px; z-index: 800; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .map-tools .btn { box-shadow: var(--shadow); }
+
+  /* ---------- แถบสถานะล่าง ---------- */
+  .statusbar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 800; height: var(--status-h);
+    display: flex; align-items: center; gap: 16px; padding: 0 14px;
     background: var(--surface); border-top: 1px solid var(--border);
-    padding-bottom: env(safe-area-inset-bottom);
+    font-size: .76rem; color: var(--text-dim); overflow-x: auto; scrollbar-width: none; white-space: nowrap;
   }
-  .botnav button {
-    border: 0; background: transparent; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    min-height: var(--nav-h); padding: 6px 1px; color: var(--text-dim); font-size: .66rem;
+  .statusbar::-webkit-scrollbar { display: none; }
+  .statusbar b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .statusbar .sb-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+  /* ---------- Overlay: หน้าฟังก์ชันเต็มจอ ---------- */
+  .overlay { position: absolute; inset: 0; z-index: 1200; background: var(--bg); display: flex; flex-direction: column; }
+  .overlay[hidden] { display: none; }
+  .overlay-head {
+    flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 11px 18px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
   }
-  .botnav button .ic { font-size: 1.3rem; line-height: 1; }
-  .botnav button.active { color: var(--primary); font-weight: 700; }
-  @media (min-width: 900px) { .botnav { display: none; } }
+  .overlay-head h2 { margin: 0; flex: 1; font-size: 1.05rem; }
+  .overlay-body { flex: 1; overflow-y: auto; padding: 18px 14px 40px; }
+  @media (min-width: 900px) { .overlay-body { padding: 22px 28px 48px; } }
+  #view { max-width: var(--maxw); margin: 0 auto; }
+
+  @media (max-width: 899px) {
+    .hdr { gap: 8px; }
+    .hdr-sub { display: none; }
+    .panel { top: 8px; left: 8px; bottom: calc(var(--status-h) + 8px); width: min(86vw, 340px); }
+    .app.panel-closed .panel-open { left: 8px; top: 8px; }
+  }
 
   /* ================= การ์ด / กริด ================= */
   .grid { display: grid; gap: 12px; }
@@ -219,7 +309,7 @@
 
   /* ================= Modal / Sheet ================= */
   .scrim {
-    position: fixed; inset: 0; background: rgba(2, 6, 23, .55); z-index: 50;
+    position: fixed; inset: 0; background: rgba(2, 6, 23, .55); z-index: 2000;
     display: flex; align-items: flex-end; justify-content: center;
   }
   @media (min-width: 700px) { .scrim { align-items: center; } }
@@ -265,18 +355,30 @@
   .toast {
     position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px); transform: translateX(-50%);
     background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px;
-    z-index: 80; font-size: .9rem; max-width: 90vw; box-shadow: var(--shadow);
+    z-index: 2200; font-size: .9rem; max-width: 90vw; box-shadow: var(--shadow);
   }
   @media (min-width: 900px) { .toast { bottom: 24px; } }
   .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* ================= แผนที่ ================= */
-  .map-wrap { position: relative; }
-  #map { width: 100%; height: calc(100vh - 150px); min-height: 380px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
-  .map-wrap:fullscreen { background: #000; }
-  .map-wrap:fullscreen #map { height: 100vh; border-radius: 0; border: 0; }
-  .map-fs-btn { position: absolute; top: 10px; right: 10px; z-index: 500; }
-  .leaflet-control-layers { font-size: .9rem; }
+  #map { z-index: 0; }
+  .leaflet-container { background: var(--surface-2); font-family: inherit; }
+  .leaflet-bottom { bottom: var(--status-h); }
+  .leaflet-bar a, .leaflet-touch .leaflet-bar a {
+    background: var(--surface); color: var(--text); border-bottom-color: var(--border);
+  }
+  .leaflet-bar a:hover { background: var(--surface-2); }
+  .leaflet-control-layers {
+    font-size: .9rem; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow);
+  }
+  .leaflet-control-layers-expanded { padding: 8px 10px; }
+  .leaflet-control-layers-toggle { filter: var(--leaflet-icon-filter, none); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .leaflet-popup-content a { color: var(--primary); }
+  .leaflet-container a.leaflet-popup-close-button { color: var(--text-dim); }
+  .leaflet-control-attribution { background: var(--surface); color: var(--text-dim); }
+  .leaflet-control-attribution a { color: var(--text-dim); }
   .edit-pin { cursor: grab; }
   .edit-pin:active, .leaflet-dragging .edit-pin { cursor: grabbing; }
   .edit-pin i { display: block; width: 24px; height: 24px; margin: 2px; border-radius: 50%; background: #f59e0b; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(245,158,11,.5), 0 2px 6px rgba(0,0,0,.5); animation: editpulse 1.6s ease-out infinite; }
@@ -327,21 +429,42 @@
 
   <!-- ---------- แอปหลัก ---------- -->
   <div class="app" id="app">
-    <div class="topbar">
-      <button class="btn ghost sm icon-btn" id="sideToggle" title="ย่อ/ขยายเมนู" aria-label="ย่อ/ขยายเมนู">☰</button>
-      <span style="font-size:1.3rem">📹</span>
-      <span class="title" id="appTitle">ระบบฐานข้อมูล CCTV</span>
-      <span class="role-badge" id="roleBadge">viewer</span>
-      <button class="btn ghost sm icon-btn" id="refreshBtn" title="รีเฟรชข้อมูลหน้านี้" aria-label="รีเฟรช">↻</button>
-      <button class="btn ghost sm" id="logoutBtn" title="ออกจากระบบ">ออก</button>
-    </div>
+    <header class="hdr">
+      <div class="hdr-brand" id="brandHome" title="ไปหน้าแผนที่">
+        <span class="logo">📹</span>
+        <div>
+          <div class="hdr-title" id="appTitle">ระบบฐานข้อมูล CCTV</div>
+          <div class="hdr-sub">แผนก ICT กองบิน ๒</div>
+        </div>
+      </div>
+      <nav class="hdr-menu" id="hdrMenu"></nav>
+      <div class="hdr-actions">
+        <span class="role-badge" id="roleBadge">viewer</span>
+        <button class="icon-btn" id="themeBtn" title="สลับธีม สว่าง/มืด">🌗</button>
+        <button class="icon-btn" id="refreshBtn" title="รีเฟรชข้อมูล">↻</button>
+        <button class="icon-btn" id="logoutBtn" title="ออกจากระบบ">⏻</button>
+      </div>
+    </header>
 
-    <div class="shell">
-      <nav class="sidebar" id="sidebar"></nav>
-      <main id="view"><div class="empty"><span class="spinner"></span> กำลังโหลด…</div></main>
-    </div>
+    <div class="stage" id="stage">
+      <div id="map"></div>
 
-    <nav class="botnav" id="botnav"></nav>
+      <aside class="panel" id="panel">
+        <div class="panel-scroll" id="panelScroll"></div>
+      </aside>
+      <button class="panel-open" id="panelOpen">☰ แผงควบคุม</button>
+
+      <div class="map-tools" id="mapTools"></div>
+      <div class="statusbar" id="statusbar"></div>
+
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-head">
+          <h2 id="overlayTitle">—</h2>
+          <button class="btn ghost sm" id="overlayClose">✕ ปิด</button>
+        </div>
+        <div class="overlay-body"><div id="view"></div></div>
+      </div>
+    </div>
   </div>
 
   <div id="modalRoot"></div>
@@ -366,22 +489,19 @@ var STATE = {
   labels: {},         // { status:{USABLE:'ใช้งานได้'}, ... }
   dashboard: null,
   cameras: [],        // cache รายการกล้อง (สำหรับ picker/แผนที่)
-  view: 'dashboard',
+  view: 'map',
 };
 
 var TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 var NAV = [
-  { id: 'dashboard',   label: 'ภาพรวม',  ic: '📊' },
-  { id: 'cameras',     label: 'กล้อง',    ic: '📹' },
-  { id: 'assets',      label: 'พัสดุ',    ic: '📦' },
-  { id: 'inspect',     label: 'ตรวจ',     ic: '📝' },
-  { id: 'maintenance', label: 'ซ่อม',     ic: '🔧' },
-  { id: 'map',         label: 'แผนที่',   ic: '🗺️' },
-];
-var NAV_MORE = [
-  { id: 'export',   label: 'ส่งออก',    ic: '📤' },
-  { id: 'settings', label: 'ตั้งค่า',   ic: '⚙️', adminOnly: true },
+  { id: 'dashboard',   label: 'ภาพรวม',      ic: '📊' },
+  { id: 'cameras',     label: 'ทะเบียนกล้อง', ic: '📹' },
+  { id: 'assets',      label: 'พัสดุ',        ic: '📦' },
+  { id: 'inspect',     label: 'ตรวจเช็ค',     ic: '📝' },
+  { id: 'maintenance', label: 'ซ่อมบำรุง',    ic: '🔧' },
+  { id: 'export',      label: 'ส่งออก',       ic: '📤' },
+  { id: 'settings',    label: 'ตั้งค่า',      ic: '⚙️', adminOnly: true },
 ];
 
 /* ============================================================
@@ -558,16 +678,11 @@ function bootstrap() {
 
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').classList.add('ready');
-    buildNav();
-    document.getElementById('logoutBtn').onclick = doLogout;
-    document.getElementById('refreshBtn').onclick = function (e) {
-      var b = e.currentTarget;
-      b.disabled = true; b.style.opacity = '.5';
-      Promise.resolve(go(STATE.view)).finally(function () {
-        setTimeout(function () { b.disabled = false; b.style.opacity = ''; }, 400);
-      });
-    };
-    go('dashboard');
+
+    buildHeaderMenu();
+    wireChrome();
+    initMapStage();
+    go('map');
   });
 }
 
@@ -579,41 +694,54 @@ function doLogout() {
 }
 
 /* ============================================================
- * เมนู / เราเตอร์
+ * Header / เราเตอร์ / แผงควบคุม
  * ========================================================== */
-function navItems() {
-  return NAV.concat(NAV_MORE).filter(function (n) { return !n.adminOnly || STATE.role === 'admin'; });
+function wireChrome() {
+  var lg = document.getElementById('logoutBtn'); if (lg) lg.onclick = doLogout;
+  var br = document.getElementById('brandHome'); if (br) br.onclick = function () { go('map'); };
+  var oc = document.getElementById('overlayClose'); if (oc) oc.onclick = function () { go('map'); };
+  var po = document.getElementById('panelOpen'); if (po) po.onclick = function () { setPanel(true); };
+
+  var rf = document.getElementById('refreshBtn');
+  if (rf) rf.onclick = function (e) {
+    var b = e.currentTarget; b.disabled = true; b.style.opacity = '.5';
+    Promise.resolve(STATE.view === 'map' ? loadCams() : go(STATE.view)).finally(function () {
+      setTimeout(function () { b.disabled = false; b.style.opacity = ''; }, 400);
+    });
+  };
+
+  var tb = document.getElementById('themeBtn');
+  if (tb && !tb._wired) {
+    tb._wired = true;
+    var saved; try { saved = localStorage.getItem('cctv_theme'); } catch (e) {}
+    if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    tb.onclick = function () {
+      var root = document.documentElement;
+      var isLight = root.getAttribute('data-theme') === 'light';
+      if (isLight) { root.removeAttribute('data-theme'); try { localStorage.setItem('cctv_theme', 'dark'); } catch (e) {} }
+      else { root.setAttribute('data-theme', 'light'); try { localStorage.setItem('cctv_theme', 'light'); } catch (e) {} }
+      if (_map) setTimeout(function () { _map.invalidateSize(); }, 60);
+    };
+  }
 }
-function buildNav() {
-  var side = document.getElementById('sidebar');
-  side.innerHTML = '';
+
+function setPanel(open) {
+  document.getElementById('app').classList.toggle('panel-closed', !open);
+  try { localStorage.setItem('cctv_panel', open ? 'open' : 'closed'); } catch (e) {}
+  if (_map) setTimeout(function () { _map.invalidateSize(); }, 240);
+}
+
+function navItems() {
+  return NAV.filter(function (n) { return !n.adminOnly || STATE.role === 'admin'; });
+}
+function buildHeaderMenu() {
+  var m = document.getElementById('hdrMenu');
+  m.innerHTML = '';
   navItems().forEach(function (n) {
-    side.appendChild(el('button', { 'data-nav': n.id, title: n.label, onclick: function () { go(n.id); } }, [
+    m.appendChild(el('button', { class: 'tab', 'data-nav': n.id, title: n.label, onclick: function () { go(n.id); } }, [
       el('span', { class: 'ic', text: n.ic }), el('span', { class: 'lbl', text: n.label }),
     ]));
   });
-  var bot = document.getElementById('botnav');
-  bot.innerHTML = '';
-  NAV.forEach(function (n) {
-    bot.appendChild(el('button', { 'data-nav': n.id, onclick: function () { go(n.id); } }, [
-      el('span', { class: 'ic', text: n.ic }), document.createTextNode(n.label),
-    ]));
-  });
-
-  // ปุ่มย่อ/ขยายเมนู (เดสก์ท็อป) — จำสถานะไว้
-  var st = document.getElementById('sideToggle');
-  if (st && !st._wired) {
-    st._wired = true;
-    var saved;
-    try { saved = localStorage.getItem('cctv_side'); } catch (e) {}
-    if (saved === 'collapsed') document.getElementById('app').classList.add('side-collapsed');
-    st.addEventListener('click', function () {
-      var app = document.getElementById('app');
-      var now = app.classList.toggle('side-collapsed');
-      try { localStorage.setItem('cctv_side', now ? 'collapsed' : 'expanded'); } catch (e) {}
-      if (_map && STATE.view === 'map') setTimeout(function () { _map.invalidateSize(); }, 220);
-    });
-  }
 }
 function markNav() {
   document.querySelectorAll('[data-nav]').forEach(function (b) {
@@ -623,12 +751,23 @@ function markNav() {
 function go(view) {
   STATE.view = view;
   markNav();
+  var overlay = document.getElementById('overlay');
+
+  if (view === 'map') {
+    overlay.hidden = true;
+    if (_map) setTimeout(function () { _map.invalidateSize(); }, 60);
+    return Promise.resolve();
+  }
+
+  var meta = NAV.filter(function (n) { return n.id === view; })[0] || { label: '' };
+  document.getElementById('overlayTitle').textContent = meta.label;
+  overlay.hidden = false;
+  var body = document.querySelector('.overlay-body'); if (body) body.scrollTop = 0;
   var host = document.getElementById('view');
   host.innerHTML = '<div class="empty"><span class="spinner"></span> กำลังโหลด…</div>';
-  window.scrollTo(0, 0);
   var fn = ({
     dashboard: viewDashboard, cameras: viewCameras, assets: viewAssets, inspect: viewInspections,
-    maintenance: viewMaintenance, map: viewMap, export: viewExport, settings: viewSettings,
+    maintenance: viewMaintenance, export: viewExport, settings: viewSettings,
   })[view] || viewDashboard;
   return Promise.resolve().then(function () { return fn(host); }).catch(function (ex) {
     host.innerHTML = '<div class="empty">โหลดไม่สำเร็จ: ' + esc(ex.message || ex) + '</div>';
@@ -1027,7 +1166,7 @@ function openCameraForm(cam) {
       toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มกล้องแล้ว'); closeSheet();
       var fid = isEdit ? cam.camera_id : (saved && saved.camera_id);
       refreshLookups().then(refreshCamFilters).then(function () { reloadCameras(fid); });
-      if (STATE.view === 'map') go('map');
+      if (_mapReady) loadCams();
     }).catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง'); alert(ex.message); });
   } });
   f.appendChild(save);
@@ -1569,48 +1708,33 @@ function _camIcon(c) {
   });
 }
 
-function viewMap(host) {
-  host.innerHTML = '';
+/* ---------- โหมดแผนที่ = หน้าหลัก (แผนที่ถาวร + แผงควบคุมซ้าย) ---------- */
+var MAP_FILTER = { camera_type: '', camera_subtype: '', status: '' };
+var ACTIVE_LAYERS = null;   // { camera_type: true/false } — เลเยอร์ที่เปิดแสดง (null = ยังไม่ตั้ง)
+var _mapReady = false;
+
+function _familyByType(type) { return _camFamily({ camera_type: type, camera_subtype: '' }); }
+function _geoCams() { return _allCams.filter(function (c) { return c.latitude != null && c.longitude != null; }); }
+
+function initMapStage() {
+  if (_mapReady) return;
+  _mapReady = true;
   var isAdmin = STATE.role === 'admin';
-  var cntChip = el('span', { class: 'chip' });
-  var mapFilter = { camera_type: '', camera_subtype: '' };
 
-  var head = el('div', { class: 'section-head' }, [
-    el('h2', { text: 'แผนที่จุดติดตั้ง' }),
-    isAdmin ? cntChip : null,
-    isAdmin ? el('button', { class: 'btn sm', title: 'ส่งออกพิกัดกล้องเป็นไฟล์ KML (เปิดใน Google Earth / Maps)', onclick: exportCamerasKml }, ['⬇️ KML']) : null,
-    el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลาง', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ จุดกึ่งกลาง']),
-  ]);
-  host.appendChild(head);
-  if (isAdmin) host.appendChild(el('p', { class: 'muted', style: 'margin:0 0 10px', text: '📍 คลิกบนแผนที่ตรงตำแหน่งกล้อง → เลือกกล้องในป๊อปอัป → บันทึก  (หรือคลิกหมุดกล้องเดิม ▸ แก้ไขพิกัด แล้วลากหมุดสีส้ม)' }));
+  // คืนสถานะแผงซ้าย (ค่าเริ่มต้น: เดสก์ท็อป = เปิด, มือถือ = ปิด)
+  var savedPanel; try { savedPanel = localStorage.getItem('cctv_panel'); } catch (e) {}
+  var startClosed = savedPanel === 'closed' || (savedPanel == null && window.innerWidth < 900);
+  document.getElementById('app').classList.toggle('panel-closed', startClosed);
 
-  var fType = el('select', { onchange: function (e) { mapFilter.camera_type = e.target.value; plotCameras(); } });
-  var fSub = el('select', { onchange: function (e) { mapFilter.camera_subtype = e.target.value; plotCameras(); } });
-  host.appendChild(el('div', { class: 'filters', style: 'margin:0 0 10px' }, [fType, fSub]));
-
-  var mapWrap = el('div', { class: 'map-wrap' }, [
-    el('div', { id: 'map' }),
-    el('button', { class: 'btn sm map-fs-btn', title: 'เต็มจอ', onclick: function () { _mapFullscreen(mapWrap); } }, ['⛶ เต็มจอ']),
-  ]);
-  host.appendChild(mapWrap);
-
-  host.appendChild(el('div', { class: 'chip-row mt', style: 'align-items:center' }, [
-    el('span', { class: 'muted', style: 'font-size:.82rem', text: 'ขอบ = สถานะ:' }),
-    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #16a34a"></span> ใช้งานได้' }),
-    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #dc2626"></span> ใช้งานไม่ได้' }),
-    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #d97706"></span> ระหว่างซ่อม' }),
-    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #94a3b8"></span> อื่น ๆ' }),
-  ]));
-  host.appendChild(el('div', { class: 'chip-row', style: 'align-items:center;margin-top:6px' }, [
-    el('span', { class: 'muted', style: 'font-size:.82rem', text: 'สัญลักษณ์ = ชนิด:' }),
-    el('span', { class: 'chip', html: '<b style="color:#2563eb">D</b> Dome' }),
-    el('span', { class: 'chip', html: '<b style="color:#0d9488">B</b> Bullet (ภายใน)' }),
-    el('span', { class: 'chip', html: '<b style="color:#0d9488">BO</b> Bullet (ภายนอก)' }),
-    el('span', { class: 'chip', html: '<b style="color:#7c3aed">P</b> PTZ' }),
-    el('span', { class: 'chip', html: '<b style="color:#ea580c">PT</b> PTZ Thermal' }),
-  ]));
-  host.appendChild(el('div', { class: 'chip-row', id: 'mapExtLegend', style: 'align-items:center;margin-top:6px;display:none' }));
-  host.appendChild(el('p', { class: 'muted mt', id: 'mapNote' }));
+  // ปุ่มเครื่องมือบนแผนที่
+  var tools = document.getElementById('mapTools');
+  tools.innerHTML = '';
+  tools.appendChild(el('button', { class: 'btn sm', title: 'ซ่อน/แสดงแผงควบคุม', onclick: function () {
+    setPanel(document.getElementById('app').classList.contains('panel-closed'));
+  } }, ['☰ แผง']));
+  tools.appendChild(el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลางฐานบิน', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ กึ่งกลาง']));
+  if (isAdmin) tools.appendChild(el('button', { class: 'btn sm', title: 'ส่งออกพิกัดกล้องเป็นไฟล์ KML', onclick: exportCamerasKml }, ['⬇️ KML']));
+  tools.appendChild(el('button', { class: 'btn sm', title: 'เต็มจอ', onclick: function () { _mapFullscreen(document.getElementById('stage')); } }, ['⛶']));
 
   if (!window._fsWired) {
     window._fsWired = true;
@@ -1619,223 +1743,294 @@ function viewMap(host) {
     document.addEventListener('webkitfullscreenchange', onFsChange);
   }
 
-  /* ---------- ภายใน ---------- */
-  function updateCounter() {
-    if (!isAdmin) return;
-    var has = _allCams.filter(function (c) { return c.latitude != null; }).length;
-    cntChip.textContent = 'มีพิกัดแล้ว ' + has + ' / ทั้งหมด ' + _allCams.length;
-  }
+  buildPanelShell();
 
-  function reloadCams() {
-    return api('cameras.list', { filters: {} }).then(function (rows) {
-      _allCams = rows; STATE.cameras = rows; fillMapFilters(); plotCameras(); updateCounter();
-    });
-  }
+  // สร้างแผนที่หลัง layout ของ .stage เสร็จ (เลี่ยงขนาด 0 ตอน bootstrap)
+  setTimeout(function () { _initLeaflet(isAdmin); }, 0);
+}
 
-  /** เติมตัวเลือกฟิลเตอร์ ประเภท/ชนิดย่อย + คำอธิบายสัญลักษณ์อุปกรณ์อื่น จากกล้องที่มีพิกัดจริง */
-  function fillMapFilters() {
-    var typeSet = {};
-    [['camera_type', fType, 'ทุกประเภท'], ['camera_subtype', fSub, 'ทุกชนิดย่อย']].forEach(function (t) {
-      var key = t[0], s = t[1], cur = mapFilter[key] || '', set = {};
-      _allCams.forEach(function (c) {
-        if (c.latitude == null || c.longitude == null) return;
-        var v = (c[key] == null ? '' : String(c[key])).trim();
-        if (v) set[v] = true;
-      });
-      if (key === 'camera_type') typeSet = set;
-      var vals = Object.keys(set);
-      if (cur && vals.indexOf(cur) === -1) vals.push(cur);
-      vals.sort(function (a, b) { return labelOf(key, a).localeCompare(labelOf(key, b), 'th'); });
-      s.innerHTML = '';
-      s.appendChild(el('option', { value: '', text: t[2] }));
-      vals.forEach(function (v) {
-        var op = el('option', { value: v, text: labelOf(key, v) });
-        if (v === cur) op.selected = true;
-        s.appendChild(op);
-      });
-      s.value = cur;
-    });
-    // คำอธิบายสัญลักษณ์ — เฉพาะอุปกรณ์อื่นที่มีหมุดจริงบนแผนที่
-    var leg = document.getElementById('mapExtLegend');
-    if (leg) {
-      var ks = Object.keys(typeSet).filter(function (k) { return CAM_EXT_PINS[k]; })
-        .sort(function (a, b) { return a.localeCompare(b, 'th'); });
-      leg.innerHTML = '';
-      if (ks.length) {
-        leg.appendChild(el('span', { class: 'muted', style: 'font-size:.82rem', text: 'อุปกรณ์อื่น:' }));
-        ks.forEach(function (k) {
-          var p = CAM_EXT_PINS[k];
-          leg.appendChild(el('span', { class: 'chip', html: '<b style="color:' + p.bg + '">' + p.code + '</b> ' + esc(k) }));
-        });
-      }
-      leg.style.display = ks.length ? '' : 'none';
-    }
-  }
+function _initLeaflet(isAdmin) {
+  _map = L.map('map', { zoomControl: false, maxZoom: 22 });
+  var GOOGLE_SUBS = ['mt0', 'mt1', 'mt2', 'mt3'];
+  var gSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google' });
+  var gHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google' });
+  var gStreet = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Map data © Google' });
+  var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 22, maxNativeZoom: 19, attribution: 'Tiles © Esri, Maxar' });
+  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22, maxNativeZoom: 19, attribution: '© OpenStreetMap' });
+  var bases = { 'ดาวเทียม (Google)': gSat, 'ดาวเทียม+ป้ายชื่อ (Google)': gHybrid, 'แผนที่ถนน (Google)': gStreet, 'ดาวเทียม (Esri)': esriSat, 'แผนที่ถนน (OSM)': osm };
+  var savedBase; try { savedBase = localStorage.getItem('cctv_maplayer'); } catch (e) {}
+  (bases[savedBase] || gSat).addTo(_map);
+  L.control.zoom({ position: 'bottomright' }).addTo(_map);
+  L.control.layers(bases, null, { collapsed: true, position: 'bottomright' }).addTo(_map);
+  _map.on('baselayerchange', function (e) { try { localStorage.setItem('cctv_maplayer', e.name); } catch (err) {} });
 
-  function buildPicker(sel, preset) {
-    var none = _allCams.filter(function (c) { return c.latitude == null; });
-    var has = _allCams.filter(function (c) { return c.latitude != null; });
-    sel.innerHTML = '';
-    sel.appendChild(el('option', { value: '', text: '— เลือกกล้อง —' }));
-    function grp(label, arr) {
-      if (!arr.length) return;
-      var g = document.createElement('optgroup'); g.label = label;
-      arr.forEach(function (c) {
-        g.appendChild(el('option', { value: c.camera_id, text: c.camera_id + ' · ' + c.location + ' (' + labelOf('camera_type', c.camera_type) + ')' }));
-      });
-      sel.appendChild(g);
-    }
-    grp('ยังไม่มีพิกัด (' + none.length + ')', none);
-    grp('มีพิกัดแล้ว (' + has.length + ')', has);
-    if (preset) sel.value = preset;
-  }
+  _map.setView(MAP_CENTER, MAP_ZOOM);
+  L.circleMarker(MAP_CENTER, { radius: 7, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 0.9, bubblingMouseEvents: false })
+    .addTo(_map).bindPopup('<b>จุดกึ่งกลางฐานบิน</b><br>' + MAP_CENTER_LABEL);
 
-  function clearEditMarker() {
-    if (_editMarker) { _map.removeLayer(_editMarker); _editMarker = null; }
-    if (_editCamId) { _editCamId = ''; plotCameras(); }
-  }
-
-  function openCoordPopup(latlng, presetCam) {
-    var lat = _r6(latlng.lat), lng = _r6(latlng.lng);
-    _editCamId = presetCam || '';
-    plotCameras();  // ซ่อนหมุดปกติของกล้องที่กำลังแก้ ให้เหลือแต่หมุดส้มลากได้
-    var icon = L.divIcon({ className: 'edit-pin', html: '<i></i>', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -24] });
-    if (!_editMarker) {
-      _editMarker = L.marker([lat, lng], {
-        draggable: true, autoPan: true, icon: icon, zIndexOffset: 2000, riseOnHover: true,
-      }).addTo(_map);
-      if (_editMarker.dragging) _editMarker.dragging.enable();
-      var syncLine = function () {
+  if (isAdmin) {
+    _map.on('click', function (e) {
+      if (_editMarker) {
+        _editMarker.setLatLng(e.latlng);
         var p = _editMarker.getLatLng();
         if (_editMarker._coordLine) _editMarker._coordLine.textContent = _r6(p.lat) + ', ' + _r6(p.lng);
-      };
-      _editMarker.on('drag', syncLine);
-      // Leaflet ปิดป๊อปอัปเองตอนเริ่มลาก → พอปล่อยแล้วเปิดใหม่ที่จุดใหม่
-      _editMarker.on('dragend', function () { syncLine(); _editMarker.openPopup(); });
-      // ไม่ผูก popupclose กับการลบหมุด (กด × แค่ซ่อนป๊อปอัป คลิกหมุดเพื่อเปิดใหม่ได้)
-    } else {
-      _editMarker.setLatLng([lat, lng]);
-      if (_editMarker.dragging) _editMarker.dragging.enable();
-    }
-
-    var node = el('div', { class: 'coord-pop' });
-    var sel = el('select', {});
-    buildPicker(sel, presetCam);
-    var coordLine = el('div', { class: 'muted', style: 'font-size:.82rem;margin:6px 0', text: lat + ', ' + lng });
-    _editMarker._coordLine = coordLine;
-    var saveB = el('button', { class: 'btn primary sm', onclick: function () {
-      var id = sel.value;
-      if (!id) { toast('เลือกกล้องก่อน'); return; }
-      var p = _editMarker.getLatLng();
-      saveB.disabled = true; saveB.textContent = '…';
-      api('cameras.update', { camera_id: id, data: { latitude: _r6(p.lat), longitude: _r6(p.lng) } })
-        .then(function () { toast('บันทึกพิกัด ' + id + ' แล้ว'); return reloadCams(); })
-        .then(function () { clearEditMarker(); })
-        .catch(function (ex) { saveB.disabled = false; saveB.textContent = 'บันทึก'; alert(ex.message); });
-    } }, ['บันทึก']);
-    var delB = el('button', { class: 'btn sm danger', onclick: function () {
-      var id = sel.value;
-      if (!id) { toast('เลือกกล้องก่อน'); return; }
-      if (!confirm('ลบพิกัดของ ' + id + ' ? (กล้องจะหายจากแผนที่ ข้อมูลอื่นคงเดิม)')) return;
-      delB.disabled = true; delB.textContent = '…';
-      api('cameras.update', { camera_id: id, data: { latitude: '', longitude: '' } })
-        .then(function () { toast('ลบพิกัด ' + id + ' แล้ว'); return reloadCams(); })
-        .then(function () { clearEditMarker(); })
-        .catch(function (ex) { delB.disabled = false; delB.textContent = 'ลบพิกัด'; alert(ex.message); });
-    } }, ['ลบพิกัด']);
-    var cancelB = el('button', { class: 'btn sm', onclick: function () { clearEditMarker(); } }, ['ยกเลิก']);
-
-    node.appendChild(el('div', { style: 'font-weight:700;margin-bottom:4px', text: 'กำหนดพิกัดให้กล้อง' }));
-    node.appendChild(sel);
-    node.appendChild(coordLine);
-    node.appendChild(el('div', { class: 'chip-row' }, [saveB, delB, cancelB]));
-    L.DomEvent.disableClickPropagation(node);
-    L.DomEvent.disableScrollPropagation(node);
-
-    _editMarker.bindPopup(node, { minWidth: 240, maxWidth: 300, closeOnClick: false, autoClose: false, closeButton: true }).openPopup();
-  }
-
-  function plotCameras() {
-    if (!_camLayer) { _camLayer = L.layerGroup().addTo(_map); }
-    _camLayer.clearLayers();
-    var withGeo = 0;
-    _allCams.forEach(function (c) {
-      if (c.latitude == null || c.longitude == null) return;
-      if (mapFilter.camera_type && c.camera_type !== mapFilter.camera_type) return;
-      if (mapFilter.camera_subtype && (c.camera_subtype || '') !== mapFilter.camera_subtype) return;
-      withGeo++;
-      if (c.camera_id === _editCamId) return;   // กำลังแก้พิกัดตัวนี้ → ซ่อนหมุดปกติ
-      var mk = L.marker([c.latitude, c.longitude], { icon: _camIcon(c) });
-      mk.bindPopup(
-        '<div style="text-align:center;line-height:1.35">' +
-        '<b>' + esc(c.camera_id) + '</b>' +
-        '<div style="margin-top:3px">' +
-        esc(c.location || '—') + '<br>' +
-        esc(labelOf('camera_type', c.camera_type) || '—') + '<br>' +
-        esc(c.camera_subtype || '—') + '<br>' +
-        esc(labelOf('status', c.status)) +
-        '</div>' +
-        (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:5px">✎ แก้ไขพิกัด</a>' : '') +
-        '</div>'
-      );
-      if (isAdmin) {
-        mk.on('popupopen', function (ev) {
-          var a = ev.popup.getElement().querySelector('[data-editcam]');
-          if (a) a.addEventListener('click', function () { _map.closePopup(); openCoordPopup(mk.getLatLng(), c.camera_id); });
-        });
+        if (!_editMarker.isPopupOpen()) _editMarker.openPopup();
+        return;
       }
-      _camLayer.addLayer(mk);
+      openCoordPopup(e.latlng, null);
     });
-    var note = document.getElementById('mapNote');
-    var filtered = !!(mapFilter.camera_type || mapFilter.camera_subtype);
-    if (note) note.textContent = withGeo
-      ? ('แสดง ' + withGeo + ' กล้อง' + (filtered ? ' (กรองแล้ว)' : 'ที่มีพิกัด') + ' · กึ่งกลาง ' + MAP_CENTER_LABEL)
-      : (filtered ? 'ไม่พบกล้องที่ตรงกับตัวกรอง' : ('ยังไม่มีกล้องที่กรอกพิกัด GPS — กึ่งกลางล็อกที่ ' + MAP_CENTER_LABEL));
   }
 
-  return api('cameras.list', { filters: {} }).then(function (rows) {
-    _allCams = rows; STATE.cameras = rows; fillMapFilters();
-    setTimeout(function () {
-      if (_map) { _map.remove(); _map = null; }
-      _camLayer = null; _editMarker = null;
-      _map = L.map('map', { zoomControl: true, maxZoom: 22 });
+  loadCams();
+  setTimeout(function () { _map.invalidateSize(); }, 60);
+}
 
-      var GOOGLE_SUBS = ['mt0', 'mt1', 'mt2', 'mt3'];
-      var gSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google' });
-      var gHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google' });
-      var gStreet = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Map data © Google' });
-      var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 22, maxNativeZoom: 19, attribution: 'Tiles © Esri, Maxar' });
-      var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 22, maxNativeZoom: 19, attribution: '© OpenStreetMap' });
-      var bases = { 'ดาวเทียม (Google)': gSat, 'ดาวเทียม+ป้ายชื่อ (Google)': gHybrid, 'แผนที่ถนน (Google)': gStreet, 'ดาวเทียม (Esri)': esriSat, 'แผนที่ถนน (OSM)': osm };
-      var saved;
-      try { saved = localStorage.getItem('cctv_maplayer'); } catch (e) {}
-      (bases[saved] || gSat).addTo(_map);
-      L.control.layers(bases, null, { collapsed: true, position: 'bottomleft' }).addTo(_map);
-      _map.on('baselayerchange', function (e) { try { localStorage.setItem('cctv_maplayer', e.name); } catch (err) {} });
-
-      _map.setView(MAP_CENTER, MAP_ZOOM);
-      L.circleMarker(MAP_CENTER, { radius: 7, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 0.9, bubblingMouseEvents: false })
-        .addTo(_map).bindPopup('<b>จุดกึ่งกลางฐานบิน</b><br>' + MAP_CENTER_LABEL);
-
-      if (isAdmin) {
-        _map.on('click', function (e) {
-          if (_editMarker) {
-            // กำลังแก้พิกัดอยู่ → คลิกแผนที่ = ย้ายหมุดไปจุดที่คลิก (ไม่รีเซ็ตกล้องที่เลือก)
-            _editMarker.setLatLng(e.latlng);
-            var p = _editMarker.getLatLng();
-            if (_editMarker._coordLine) _editMarker._coordLine.textContent = _r6(p.lat) + ', ' + _r6(p.lng);
-            if (!_editMarker.isPopupOpen()) _editMarker.openPopup();
-            return;
-          }
-          openCoordPopup(e.latlng, null);
-        });
-      }
-
-      plotCameras();
-      updateCounter();
-      _map.invalidateSize();
-    }, 50);
+/** สร้างโครงแผงควบคุม 3 ส่วน: เลเยอร์ / ตัวกรอง / รายการกล้อง (พับได้ทีละส่วน) */
+function buildPanelShell() {
+  var scroll = document.getElementById('panelScroll');
+  scroll.innerHTML = '';
+  var savedCollapse = {};
+  try { savedCollapse = JSON.parse(localStorage.getItem('cctv_panelsec') || '{}'); } catch (e) {}
+  [
+    ['layers', 'เลเยอร์อุปกรณ์', 'layerBox', false],
+    ['filters', 'ตัวกรอง', 'filterBox', false],
+    ['list', null, 'listBox', true],
+  ].forEach(function (s) {
+    var body = el('div', { class: s[3] ? 'panel-body cam-list' : 'panel-body', id: s[2] });
+    var head = el('h4', { class: 'panel-h' }, [
+      s[0] === 'list'
+        ? el('span', {}, ['รายการกล้อง ', el('span', { id: 'camCount', class: 'muted' }, ['0'])])
+        : document.createTextNode(s[1]),
+      el('span', { class: 'caret', text: '▾' }),
+    ]);
+    var sec = el('section', { class: 'panel-sec' + (savedCollapse[s[0]] ? ' collapsed' : ''), 'data-sec': s[0] }, [head, body]);
+    head.addEventListener('click', function () {
+      var col = sec.classList.toggle('collapsed');
+      savedCollapse[s[0]] = col;
+      try { localStorage.setItem('cctv_panelsec', JSON.stringify(savedCollapse)); } catch (e) {}
+    });
+    scroll.appendChild(sec);
   });
+}
+
+/** โหลดกล้องทั้งหมด → สร้างเลเยอร์/ตัวกรอง/รายการ + วางหมุด */
+function loadCams() {
+  return api('cameras.list', { filters: {} }).then(function (rows) {
+    _allCams = rows; STATE.cameras = rows;
+    buildLayerToggles();
+    buildMapFilters();
+    plotCameras();
+  });
+}
+
+/** ปุ่มเปิด/ปิดเลเยอร์ — 1 ปุ่มต่อประเภทอุปกรณ์ (camera_type) ที่มีพิกัดจริง */
+function buildLayerToggles() {
+  var box = document.getElementById('layerBox'); if (!box) return;
+  var counts = {};
+  _geoCams().forEach(function (c) { var t = c.camera_type || '—'; counts[t] = (counts[t] || 0) + 1; });
+  var types = Object.keys(counts).sort(function (a, b) { return labelOf('camera_type', a).localeCompare(labelOf('camera_type', b), 'th'); });
+  if (!ACTIVE_LAYERS) ACTIVE_LAYERS = {};
+  types.forEach(function (t) { if (!(t in ACTIVE_LAYERS)) ACTIVE_LAYERS[t] = true; });
+  box.innerHTML = '';
+  if (!types.length) { box.appendChild(el('p', { class: 'muted', style: 'font-size:.82rem', text: 'ยังไม่มีกล้องที่กรอกพิกัด' })); return; }
+  types.forEach(function (t) {
+    var fam = _familyByType(t);
+    var btn = el('button', { class: 'layer-btn' + (ACTIVE_LAYERS[t] ? '' : ' off'), onclick: function () {
+      ACTIVE_LAYERS[t] = !ACTIVE_LAYERS[t];
+      btn.classList.toggle('off', !ACTIVE_LAYERS[t]);
+      plotCameras();
+    } }, [
+      el('span', { class: 'badge-dot', style: 'background:' + fam.bg, text: fam.code }),
+      el('span', { text: labelOf('camera_type', t) }),
+      el('span', { class: 'ct', text: String(counts[t]) }),
+    ]);
+    box.appendChild(btn);
+  });
+}
+
+/** ตัวกรอง ประเภท / ชนิดย่อย / สถานะ — ตัวเลือกมาจากค่าจริงของกล้องที่มีพิกัด */
+function buildMapFilters() {
+  var box = document.getElementById('filterBox'); if (!box) return;
+  box.innerHTML = '';
+  [['camera_type', 'ทุกประเภท'], ['camera_subtype', 'ทุกชนิดย่อย'], ['status', 'ทุกสถานะ']].forEach(function (t) {
+    var key = t[0], cur = MAP_FILTER[key] || '', set = {};
+    _geoCams().forEach(function (c) { var v = (c[key] == null ? '' : String(c[key])).trim(); if (v) set[v] = true; });
+    var vals = Object.keys(set);
+    if (cur && vals.indexOf(cur) === -1) vals.push(cur);
+    vals.sort(function (a, b) { return labelOf(key, a).localeCompare(labelOf(key, b), 'th'); });
+    var s = el('select', { onchange: function (e) { MAP_FILTER[key] = e.target.value; plotCameras(); } });
+    s.appendChild(el('option', { value: '', text: t[1] }));
+    vals.forEach(function (v) {
+      var op = el('option', { value: v, text: labelOf(key, v) });
+      if (v === cur) op.selected = true;
+      s.appendChild(op);
+    });
+    s.value = cur;
+    box.appendChild(s);
+  });
+}
+
+function _passFilter(c) {
+  if (ACTIVE_LAYERS && ACTIVE_LAYERS[c.camera_type || '—'] === false) return false;
+  if (MAP_FILTER.camera_type && c.camera_type !== MAP_FILTER.camera_type) return false;
+  if (MAP_FILTER.camera_subtype && (c.camera_subtype || '') !== MAP_FILTER.camera_subtype) return false;
+  if (MAP_FILTER.status && c.status !== MAP_FILTER.status) return false;
+  return true;
+}
+
+function plotCameras() {
+  if (!_map) return;
+  if (!_camLayer) _camLayer = L.layerGroup().addTo(_map);
+  _camLayer.clearLayers();
+  var isAdmin = STATE.role === 'admin';
+  var shown = [];
+  _geoCams().forEach(function (c) {
+    if (!_passFilter(c)) return;
+    shown.push(c);
+    if (c.camera_id === _editCamId) return;
+    var mk = L.marker([c.latitude, c.longitude], { icon: _camIcon(c) });
+    mk._camId = c.camera_id;
+    mk.bindPopup(
+      '<div style="text-align:center;line-height:1.35">' +
+      '<b>' + esc(c.camera_id) + '</b>' +
+      '<div style="margin-top:3px">' +
+      esc(c.location || '—') + '<br>' +
+      esc(labelOf('camera_type', c.camera_type) || '—') + '<br>' +
+      esc(c.camera_subtype || '—') + '<br>' +
+      esc(labelOf('status', c.status)) +
+      '</div>' +
+      (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:5px">✎ แก้ไขพิกัด</a>' : '') +
+      '</div>'
+    );
+    if (isAdmin) {
+      mk.on('popupopen', function (ev) {
+        var a = ev.popup.getElement().querySelector('[data-editcam]');
+        if (a) a.addEventListener('click', function () { _map.closePopup(); openCoordPopup(mk.getLatLng(), c.camera_id); });
+      });
+    }
+    _camLayer.addLayer(mk);
+  });
+  renderCamList(shown);
+  updateStatusbar(shown);
+}
+
+function renderCamList(shown) {
+  var box = document.getElementById('listBox'); if (!box) return;
+  var cc = document.getElementById('camCount'); if (cc) cc.textContent = String(shown.length);
+  box.innerHTML = '';
+  if (!shown.length) { box.appendChild(el('p', { class: 'muted', style: 'font-size:.82rem;padding:6px 8px', text: 'ไม่พบกล้องที่ตรงกับตัวกรอง' })); return; }
+  shown.slice().sort(function (a, b) { return String(a.camera_id).localeCompare(String(b.camera_id), 'th'); }).forEach(function (c) {
+    var fam = _camFamily(c);
+    box.appendChild(el('div', { class: 'cam-item', onclick: function () {
+      _map.setView([c.latitude, c.longitude], Math.max(_map.getZoom(), 19));
+      _camLayer.eachLayer(function (l) { if (l._camId === c.camera_id) l.openPopup(); });
+      if (window.innerWidth < 900) setPanel(false);
+    } }, [
+      el('span', { class: 'badge-dot', style: 'background:' + fam.bg, text: fam.code }),
+      el('span', { class: 'ci-main' }, [
+        el('div', { class: 'ci-id', text: c.camera_id }),
+        el('div', { class: 'ci-sub', text: (c.location || '—') + ' · ' + labelOf('camera_type', c.camera_type) }),
+      ]),
+      el('span', { class: 'ci-st', style: 'background:' + _statusColor(c.status), title: labelOf('status', c.status) }),
+    ]));
+  });
+}
+
+function updateStatusbar(shown) {
+  var bar = document.getElementById('statusbar'); if (!bar) return;
+  var geo = _geoCams();
+  var n = function (st) { return geo.filter(function (c) { return c.status === st; }).length; };
+  bar.innerHTML = '';
+  [
+    'มีพิกัด <b>' + geo.length + '</b> / ' + _allCams.length + ' กล้อง',
+    '<span class="sb-dot" style="background:#16a34a"></span>ใช้งานได้ <b>' + n('USABLE') + '</b>',
+    '<span class="sb-dot" style="background:#dc2626"></span>ใช้ไม่ได้ <b>' + n('UNUSABLE') + '</b>',
+    '<span class="sb-dot" style="background:#d97706"></span>ซ่อม <b>' + n('REPAIRING') + '</b>',
+    'แสดงบนแผนที่ <b>' + shown.length + '</b>',
+    'กึ่งกลาง ' + MAP_CENTER_LABEL,
+  ].forEach(function (p) { bar.appendChild(el('span', { html: p })); });
+}
+
+function buildPicker(sel, preset) {
+  var none = _allCams.filter(function (c) { return c.latitude == null; });
+  var has = _allCams.filter(function (c) { return c.latitude != null; });
+  sel.innerHTML = '';
+  sel.appendChild(el('option', { value: '', text: '— เลือกกล้อง —' }));
+  function grp(label, arr) {
+    if (!arr.length) return;
+    var g = document.createElement('optgroup'); g.label = label;
+    arr.forEach(function (c) {
+      g.appendChild(el('option', { value: c.camera_id, text: c.camera_id + ' · ' + c.location + ' (' + labelOf('camera_type', c.camera_type) + ')' }));
+    });
+    sel.appendChild(g);
+  }
+  grp('ยังไม่มีพิกัด (' + none.length + ')', none);
+  grp('มีพิกัดแล้ว (' + has.length + ')', has);
+  if (preset) sel.value = preset;
+}
+
+function clearEditMarker() {
+  if (_editMarker) { _map.removeLayer(_editMarker); _editMarker = null; }
+  if (_editCamId) { _editCamId = ''; plotCameras(); }
+}
+
+function openCoordPopup(latlng, presetCam) {
+  var lat = _r6(latlng.lat), lng = _r6(latlng.lng);
+  _editCamId = presetCam || '';
+  plotCameras();  // ซ่อนหมุดปกติของกล้องที่กำลังแก้ ให้เหลือแต่หมุดส้มลากได้
+  var icon = L.divIcon({ className: 'edit-pin', html: '<i></i>', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -24] });
+  if (!_editMarker) {
+    _editMarker = L.marker([lat, lng], {
+      draggable: true, autoPan: true, icon: icon, zIndexOffset: 2000, riseOnHover: true,
+    }).addTo(_map);
+    if (_editMarker.dragging) _editMarker.dragging.enable();
+    var syncLine = function () {
+      var p = _editMarker.getLatLng();
+      if (_editMarker._coordLine) _editMarker._coordLine.textContent = _r6(p.lat) + ', ' + _r6(p.lng);
+    };
+    _editMarker.on('drag', syncLine);
+    // Leaflet ปิดป๊อปอัปเองตอนเริ่มลาก → พอปล่อยแล้วเปิดใหม่ที่จุดใหม่
+    _editMarker.on('dragend', function () { syncLine(); _editMarker.openPopup(); });
+  } else {
+    _editMarker.setLatLng([lat, lng]);
+    if (_editMarker.dragging) _editMarker.dragging.enable();
+  }
+
+  var node = el('div', { class: 'coord-pop' });
+  var sel = el('select', {});
+  buildPicker(sel, presetCam);
+  var coordLine = el('div', { class: 'muted', style: 'font-size:.82rem;margin:6px 0', text: lat + ', ' + lng });
+  _editMarker._coordLine = coordLine;
+  var saveB = el('button', { class: 'btn primary sm', onclick: function () {
+    var id = sel.value;
+    if (!id) { toast('เลือกกล้องก่อน'); return; }
+    var p = _editMarker.getLatLng();
+    saveB.disabled = true; saveB.textContent = '…';
+    api('cameras.update', { camera_id: id, data: { latitude: _r6(p.lat), longitude: _r6(p.lng) } })
+      .then(function () { toast('บันทึกพิกัด ' + id + ' แล้ว'); return loadCams(); })
+      .then(function () { clearEditMarker(); })
+      .catch(function (ex) { saveB.disabled = false; saveB.textContent = 'บันทึก'; alert(ex.message); });
+  } }, ['บันทึก']);
+  var delB = el('button', { class: 'btn sm danger', onclick: function () {
+    var id = sel.value;
+    if (!id) { toast('เลือกกล้องก่อน'); return; }
+    if (!confirm('ลบพิกัดของ ' + id + ' ? (กล้องจะหายจากแผนที่ ข้อมูลอื่นคงเดิม)')) return;
+    delB.disabled = true; delB.textContent = '…';
+    api('cameras.update', { camera_id: id, data: { latitude: '', longitude: '' } })
+      .then(function () { toast('ลบพิกัด ' + id + ' แล้ว'); return loadCams(); })
+      .then(function () { clearEditMarker(); })
+      .catch(function (ex) { delB.disabled = false; delB.textContent = 'ลบพิกัด'; alert(ex.message); });
+  } }, ['ลบพิกัด']);
+  var cancelB = el('button', { class: 'btn sm', onclick: function () { clearEditMarker(); } }, ['ยกเลิก']);
+
+  node.appendChild(el('div', { style: 'font-weight:700;margin-bottom:4px', text: 'กำหนดพิกัดให้กล้อง' }));
+  node.appendChild(sel);
+  node.appendChild(coordLine);
+  node.appendChild(el('div', { class: 'chip-row' }, [saveB, delB, cancelB]));
+  L.DomEvent.disableClickPropagation(node);
+  L.DomEvent.disableScrollPropagation(node);
+
+  _editMarker.bindPopup(node, { minWidth: 240, maxWidth: 300, closeOnClick: false, autoClose: false, closeButton: true }).openPopup();
 }
 
 /* ============================================================
