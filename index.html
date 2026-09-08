@@ -169,8 +169,10 @@
   .cam-item:hover { background: var(--surface-2); }
   .cam-item .badge-dot { width: 20px; height: 20px; border-radius: 5px; font-size: 9px; }
   .cam-item .ci-main { flex: 1; min-width: 0; }
-  .cam-item .ci-id { font-weight: 700; }
-  .cam-item .ci-sub { color: var(--text-dim); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cam-item .ci-id { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cam-item .ci-id b { font-weight: 700; }
+  .cam-item .ci-type { margin-left: 6px; font-weight: 400; color: var(--text-dim); font-size: .82rem; }
+  .cam-item .ci-sub { color: var(--text-dim); font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cam-item .ci-st { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
   .app.panel-closed .panel { transform: translateX(calc(-100% - var(--panel-x) - 8px)); opacity: 0; pointer-events: none; }
@@ -1955,8 +1957,11 @@ function renderCamList(shown) {
     } }, [
       el('span', { class: 'badge-dot', style: 'background:' + fam.bg, text: fam.code }),
       el('span', { class: 'ci-main' }, [
-        el('div', { class: 'ci-id', text: c.camera_id }),
-        el('div', { class: 'ci-sub', text: (c.location || '—') + ' · ' + labelOf('camera_type', c.camera_type) }),
+        el('div', { class: 'ci-id' }, [
+          el('b', { text: c.camera_id }),
+          el('span', { class: 'ci-type', text: labelOf('camera_type', c.camera_type) }),
+        ]),
+        el('div', { class: 'ci-sub', text: c.location || '—' }),
       ]),
       el('span', { class: 'ci-st', style: 'background:' + _statusColor(c.status), title: labelOf('status', c.status) }),
     ]));
