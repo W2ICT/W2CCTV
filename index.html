@@ -356,7 +356,7 @@
 'use strict';
 
 /* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
-var API_URL = 'https://script.google.com/macros/s/AKfycbyNdZxwn3vZLooPysZ2N9xfId6rU9Xv9eKB2A8lL-dngUc30AV_CipWSO0D91Z8mk3-/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycby-e5Tung-KySi_YnYl3Qd5dwgXo6LV8Fweb6Qf1KPdFsm49QcFFkWivc3gfSJktZZg/exec';
 
 /* ---------- สถานะรวม ---------- */
 var STATE = {
@@ -1528,6 +1528,23 @@ function _statusColor(s) {
 }
 function _r6(n) { return Math.round(n * 1e6) / 1e6; }
 
+/** สัญลักษณ์หมุดสำหรับ "อุปกรณ์อื่น" (ประเภทที่ไม่ใช่กล้อง 5 ตระกูลหลัก) — code + สีพื้น
+ *  ใช้ร่วมกันทั้งไอคอนบนแผนที่และคำอธิบายสัญลักษณ์ (mapExtLegend) */
+var CAM_EXT_PINS = {
+  'FACE':                              { code: 'F',  bg: '#db2777' },
+  'ALPR':                              { code: 'LP', bg: '#e11d48' },
+  'RFID L':                            { code: 'RL', bg: '#a21caf' },
+  'RFID S':                            { code: 'RS', bg: '#c026d3' },
+  'DOOR Access':                       { code: 'DR', bg: '#0891b2' },
+  'Client Viewer CCTV':                { code: 'CV', bg: '#4f46e5' },
+  'Monitor':                           { code: 'MN', bg: '#0284c7' },
+  'Management & Recording Server':     { code: 'SV', bg: '#334155' },
+  'Access Control System Management':  { code: 'AC', bg: '#78716c' },
+  'Photo Card':                        { code: 'PC', bg: '#a16207' },
+  'เครื่องพิมพ์บัตร':                  { code: 'PR', bg: '#b45309' },
+  'แขนกั้นรถยนต์ พร้อมเครื่องอ่าน':    { code: 'GT', bg: '#4d7c0f' },
+};
+
 /** จำแนกสัญลักษณ์ตามชนิดย่อย (fallback ประเภทกล้อง) → { code, bg } */
 function _camFamily(c) {
   var sub = (c.camera_subtype || '').toLowerCase();
@@ -1537,6 +1554,7 @@ function _camFamily(c) {
   if (sub.indexOf('od_5mp') > -1 || sub.indexOf('outdoor') > -1 || sub.indexOf('ภายนอก') > -1) return { code: 'BO', bg: '#0d9488' };
   if (sub.indexOf('bullet') > -1 || ty === 'BULLET') return { code: 'B', bg: '#0d9488' };
   if (sub.indexOf('dome') > -1 || ty === 'DOME') return { code: 'D', bg: '#2563eb' };
+  if (CAM_EXT_PINS[ty]) return CAM_EXT_PINS[ty];
   return { code: '•', bg: '#64748b' };
 }
 
@@ -1591,6 +1609,7 @@ function viewMap(host) {
     el('span', { class: 'chip', html: '<b style="color:#7c3aed">P</b> PTZ' }),
     el('span', { class: 'chip', html: '<b style="color:#ea580c">PT</b> PTZ Thermal' }),
   ]));
+  host.appendChild(el('div', { class: 'chip-row', id: 'mapExtLegend', style: 'align-items:center;margin-top:6px;display:none' }));
   host.appendChild(el('p', { class: 'muted mt', id: 'mapNote' }));
 
   if (!window._fsWired) {
@@ -1613,8 +1632,9 @@ function viewMap(host) {
     });
   }
 
-  /** เติมตัวเลือกฟิลเตอร์ ประเภท/ชนิดย่อย จากกล้องที่มีพิกัดจริงบนแผนที่ */
+  /** เติมตัวเลือกฟิลเตอร์ ประเภท/ชนิดย่อย + คำอธิบายสัญลักษณ์อุปกรณ์อื่น จากกล้องที่มีพิกัดจริง */
   function fillMapFilters() {
+    var typeSet = {};
     [['camera_type', fType, 'ทุกประเภท'], ['camera_subtype', fSub, 'ทุกชนิดย่อย']].forEach(function (t) {
       var key = t[0], s = t[1], cur = mapFilter[key] || '', set = {};
       _allCams.forEach(function (c) {
@@ -1622,6 +1642,7 @@ function viewMap(host) {
         var v = (c[key] == null ? '' : String(c[key])).trim();
         if (v) set[v] = true;
       });
+      if (key === 'camera_type') typeSet = set;
       var vals = Object.keys(set);
       if (cur && vals.indexOf(cur) === -1) vals.push(cur);
       vals.sort(function (a, b) { return labelOf(key, a).localeCompare(labelOf(key, b), 'th'); });
@@ -1634,6 +1655,21 @@ function viewMap(host) {
       });
       s.value = cur;
     });
+    // คำอธิบายสัญลักษณ์ — เฉพาะอุปกรณ์อื่นที่มีหมุดจริงบนแผนที่
+    var leg = document.getElementById('mapExtLegend');
+    if (leg) {
+      var ks = Object.keys(typeSet).filter(function (k) { return CAM_EXT_PINS[k]; })
+        .sort(function (a, b) { return a.localeCompare(b, 'th'); });
+      leg.innerHTML = '';
+      if (ks.length) {
+        leg.appendChild(el('span', { class: 'muted', style: 'font-size:.82rem', text: 'อุปกรณ์อื่น:' }));
+        ks.forEach(function (k) {
+          var p = CAM_EXT_PINS[k];
+          leg.appendChild(el('span', { class: 'chip', html: '<b style="color:' + p.bg + '">' + p.code + '</b> ' + esc(k) }));
+        });
+      }
+      leg.style.display = ks.length ? '' : 'none';
+    }
   }
 
   function buildPicker(sel, preset) {
