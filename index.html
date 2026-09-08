@@ -155,14 +155,22 @@
   .row-card .sub { color: var(--text-dim); font-size: .9rem; }
 
   table.data { width: 100%; border-collapse: collapse; font-size: .93rem; }
-  table.data { table-layout: auto; }
-  table.data th, table.data td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
-  table.data td { white-space: normal; overflow-wrap: anywhere; }
-  table.data th { white-space: nowrap; color: var(--text-dim); font-weight: 700; position: sticky; top: 0; z-index: 2; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
+  table.data th, table.data td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
+  table.data td { white-space: normal; overflow-wrap: normal; word-break: normal; }
+  table.data th { white-space: nowrap; color: var(--text-dim); font-weight: 700; font-size: .82rem; letter-spacing: .02em; text-transform: none; position: sticky; top: 0; z-index: 2; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
   table.data td.nowrap, table.data th.nowrap { white-space: nowrap; }
+  table.data td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   table.data tr { cursor: pointer; }
-  table.data tbody tr:hover td { background: var(--surface-2); }
-  .table-wrap { overflow: auto; max-height: 70vh; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  table.data tbody tr:nth-child(even) td { background: var(--surface-2); }
+  table.data tbody tr:hover td { background: var(--muted-bg); }
+  table.data tbody tr:last-child td { border-bottom: 0; }
+
+  /* คอลัมน์กำหนดความกว้าง (table-layout: fixed) */
+  table.data.fixed { table-layout: fixed; }
+  .col-id { width: 92px; } .col-code { width: 128px; } .col-sm { width: 96px; }
+  .col-md { width: 140px; } .col-lg { width: 180px; } .col-badge { width: 104px; }
+
+  .table-wrap { overflow: auto; max-height: 74vh; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
   .only-desktop { display: none; }
   .only-mobile { display: block; }
   @media (min-width: 900px) { .only-desktop { display: block; } .only-mobile { display: none; } }
@@ -670,12 +678,14 @@ function breakdownCard(title, arr, key) {
 function unitTable(arr) {
   var wrap = el('div', { class: 'table-wrap' });
   var t = el('table', { class: 'data' });
-  t.innerHTML = '<thead><tr><th>หน่วยงาน</th><th>ทั้งหมด</th><th>ใช้ได้</th><th>พร้อมใช้ %</th></tr></thead>';
+  t.className = 'data fixed';
+  t.innerHTML = '<colgroup><col><col class="col-sm"><col class="col-sm"><col class="col-md"></colgroup>' +
+    '<thead><tr><th>หน่วยงาน</th><th class="num">ทั้งหมด</th><th class="num">ใช้ได้</th><th class="num">พร้อมใช้ %</th></tr></thead>';
   var tb = el('tbody');
   arr.forEach(function (u) {
     var pct = u.total ? Math.round(u.usable / u.total * 100) : 0;
     var tr = el('tr', { onclick: function () { go('cameras'); setTimeout(function () { setCameraFilter('unit', u.unit); }, 60); } });
-    tr.innerHTML = '<td>' + esc(u.unit) + '</td><td>' + u.total + '</td><td>' + u.usable + '</td><td>' + pct + '%</td>';
+    tr.innerHTML = '<td>' + esc(u.unit) + '</td><td class="num">' + u.total + '</td><td class="num">' + u.usable + '</td><td class="num">' + pct + '%</td>';
     tb.appendChild(tr);
   });
   t.appendChild(tb); wrap.appendChild(t); return wrap;
@@ -752,14 +762,16 @@ function reloadCameras() {
 
     // เดสก์ท็อป: ตาราง
     var wrap = el('div', { class: 'table-wrap only-desktop' });
-    var t = el('table', { class: 'data' });
-    t.innerHTML = '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
+    var t = el('table', { class: 'data fixed' });
+    t.innerHTML =
+      '<colgroup><col class="col-id"><col class="col-lg"><col><col class="col-md"><col class="col-badge"><col class="col-md"></colgroup>' +
+      '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (c) {
       var tr = el('tr', { onclick: function () { openCameraDetail(c.camera_id); } });
-      tr.innerHTML = '<td><strong>' + esc(c.camera_id) + '</strong></td><td>' + esc(c.unit) + '</td><td>' + esc(c.location) +
-        '</td><td>' + esc(labelOf('camera_type', c.camera_type)) + '</td><td>' + statusBadge(c.status) +
-        '</td><td class="muted">' + (c.latitude != null ? c.latitude + ', ' + c.longitude : '—') + '</td>';
+      tr.innerHTML = '<td class="nowrap"><strong>' + esc(c.camera_id) + '</strong></td><td>' + esc(c.unit) + '</td><td>' + esc(c.location) +
+        '</td><td>' + esc(labelOf('camera_type', c.camera_type)) + '</td><td class="nowrap">' + statusBadge(c.status) +
+        '</td><td class="nowrap muted">' + (c.latitude != null ? c.latitude + ', ' + c.longitude : '—') + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
@@ -948,13 +960,15 @@ function reloadAssets() {
     box.appendChild(mob);
 
     var wrap = el('div', { class: 'table-wrap only-desktop' });
-    var t = el('table', { class: 'data' });
-    t.innerHTML = '<thead><tr><th>รหัส</th><th>หมายเลขพัสดุ</th><th>หมวด</th><th>ชนิด</th><th>ชื่อพัสดุ</th><th>จำนวน</th><th>จุดติดตั้ง</th><th>สถานะ</th></tr></thead>';
+    var t = el('table', { class: 'data fixed' });
+    t.innerHTML =
+      '<colgroup><col class="col-id"><col class="col-code"><col class="col-md"><col class="col-lg"><col><col class="col-sm"><col class="col-md"><col class="col-badge"></colgroup>' +
+      '<thead><tr><th>รหัส</th><th>หมายเลขพัสดุ</th><th>หมวด</th><th>ชนิด</th><th>ชื่อพัสดุ</th><th class="num">จำนวน</th><th>จุดติดตั้ง</th><th>สถานะ</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (a) {
       var tr = el('tr', { onclick: function () { openAssetDetail(a.asset_id); } });
-      tr.innerHTML = '<td><strong>' + esc(a.asset_id) + '</strong></td><td class="muted">' + esc(a.psu_no) + '</td><td>' + esc(a.grp) +
-        '</td><td>' + esc(a.kind) + '</td><td>' + esc(a.name) + '</td><td>' + a.qty + ' ' + esc(a.unit) +
+      tr.innerHTML = '<td class="nowrap"><strong>' + esc(a.asset_id) + '</strong></td><td class="nowrap muted">' + esc(a.psu_no) + '</td><td>' + esc(a.grp) +
+        '</td><td>' + esc(a.kind) + '</td><td>' + esc(a.name) + '</td><td class="num">' + a.qty + ' ' + esc(a.unit) +
         '</td><td>' + esc(a.location || '—') + '</td><td>' + assetStatusBadge(a.status) + '</td>';
       tb.appendChild(tr);
     });
@@ -1055,22 +1069,24 @@ function renderAssetSummary(host, d) {
 
   host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'แยกตามจุดติดตั้ง' })]));
   var w1 = el('div', { class: 'table-wrap' });
-  var t1 = el('table', { class: 'data' });
-  t1.innerHTML = '<thead><tr><th>จุดติดตั้ง</th><th>รายการ</th><th>จำนวน</th></tr></thead>';
+  var t1 = el('table', { class: 'data fixed' });
+  t1.innerHTML = '<colgroup><col><col class="col-sm"><col class="col-md"></colgroup>' +
+    '<thead><tr><th>จุดติดตั้ง</th><th class="num">รายการ</th><th class="num">จำนวน</th></tr></thead>';
   var b1 = el('tbody');
   d.by_location.forEach(function (l) {
-    var tr = el('tr'); tr.innerHTML = '<td>' + esc(l.location) + '</td><td>' + l.rows + '</td><td>' + l.qty.toLocaleString('th-TH') + '</td>';
+    var tr = el('tr'); tr.innerHTML = '<td>' + esc(l.location) + '</td><td class="num">' + l.rows + '</td><td class="num">' + l.qty.toLocaleString('th-TH') + '</td>';
     b1.appendChild(tr);
   });
   t1.appendChild(b1); w1.appendChild(t1); host.appendChild(w1);
 
   host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'สรุปรายการ (BOM)' })]));
   var w2 = el('div', { class: 'table-wrap' });
-  var t2 = el('table', { class: 'data' });
-  t2.innerHTML = '<thead><tr><th>ชื่อพัสดุ</th><th>จำนวน</th><th>หน่วย</th></tr></thead>';
+  var t2 = el('table', { class: 'data fixed' });
+  t2.innerHTML = '<colgroup><col><col class="col-md"><col class="col-sm"></colgroup>' +
+    '<thead><tr><th>ชื่อพัสดุ</th><th class="num">จำนวน</th><th>หน่วย</th></tr></thead>';
   var b2 = el('tbody');
   d.bom.forEach(function (x) {
-    var tr = el('tr'); tr.innerHTML = '<td>' + esc(x.name) + '</td><td>' + x.qty.toLocaleString('th-TH') + '</td><td>' + esc(x.unit) + '</td>';
+    var tr = el('tr'); tr.innerHTML = '<td>' + esc(x.name) + '</td><td class="num">' + x.qty.toLocaleString('th-TH') + '</td><td>' + esc(x.unit) + '</td>';
     b2.appendChild(tr);
   });
   t2.appendChild(b2); w2.appendChild(t2); host.appendChild(w2);
