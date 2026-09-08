@@ -244,6 +244,55 @@
   .kpi .card.ok .num { color: var(--ok); }
   .kpi .card.bad .num { color: var(--bad); }
 
+  /* ================= Dashboard (ภาพรวม) — minimal ================= */
+  .dash { display: flex; flex-direction: column; gap: 20px; }
+  .dash-sec { display: flex; flex-direction: column; gap: 10px; }
+  .dash-h { margin: 0; font-size: .82rem; font-weight: 700; letter-spacing: .02em; color: var(--text-dim); }
+
+  .dash-hero {
+    display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 22px; box-shadow: var(--shadow);
+  }
+  .dash-hero .ring { flex-shrink: 0; }
+  .dash-hero .ring-num { font-size: 19px; font-weight: 800; fill: var(--text); }
+  .dash-hero .h-main { flex: 1; min-width: 210px; }
+  .dash-hero .h-title { font-size: .85rem; color: var(--text-dim); }
+  .dash-hero .h-big { font-size: 2rem; font-weight: 800; line-height: 1.15; margin-top: 2px; }
+  .dash-hero .h-sub { color: var(--text-dim); font-size: .88rem; margin-top: 8px; line-height: 1.7; }
+  .dash-hero .h-sub b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .dash-tiles { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 640px) { .dash-tiles { grid-template-columns: repeat(4, 1fr); } }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .tile .t-num { font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; }
+  .tile .t-lbl { font-size: .8rem; color: var(--text-dim); display: flex; align-items: center; gap: 7px; }
+  .tile .t-lbl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--text-dim)); flex-shrink: 0; }
+
+  .segbar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--muted-bg); }
+  .segbar > span { display: block; height: 100%; min-width: 2px; }
+  .seg-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-top: 12px; }
+  .seg-legend .lg { display: flex; align-items: center; gap: 6px; font-size: .84rem; color: var(--text-dim); }
+  .seg-legend .lg i { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+  .seg-legend .lg b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .dash-2col { display: grid; gap: 14px; }
+  @media (min-width: 820px) { .dash-2col { grid-template-columns: 1fr 1fr; } }
+
+  .unit-list { display: flex; flex-direction: column; gap: 2px; }
+  .unit-row {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center;
+    padding: 9px 10px; border-radius: 9px; cursor: pointer;
+  }
+  .unit-row:hover { background: var(--surface-2); }
+  .unit-row .u-name { font-weight: 600; font-size: .9rem; }
+  .unit-row .u-val { font-size: .82rem; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .unit-row .u-track { grid-column: 1 / -1; height: 6px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+  .unit-row .u-track > i { display: block; height: 100%; background: var(--ok); }
+
   .section-head { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; }
   .section-head h2 { margin: 0; flex: 1; }
   .section-head:first-child { margin-top: 0; }
@@ -802,36 +851,99 @@ function viewDashboard(host) {
   return api('dashboard.get').then(function (d) {
     STATE.dashboard = d;
     var k = d.kpi;
+    var activeTotal = k.total - k.decommissioned;
     host.innerHTML = '';
+    var dash = el('div', { class: 'dash' });
 
-    host.appendChild(el('div', { class: 'grid kpi' }, [
-      kpiCard(k.total, 'กล้องทั้งหมด', 'accent'),
-      kpiCard(k.usable, 'ใช้งานได้', 'ok'),
-      kpiCard(k.not_ready, 'ไม่พร้อมใช้', 'bad'),
-      kpiCard(k.decommissioned, 'ยกเลิกใช้งาน', ''),
-      kpiCard(k.availability_pct + '%', 'Availability', 'accent'),
-      kpiCard(k.open_maintenance, 'งานซ่อมค้าง', 'bad'),
+    /* ---- Hero: ความพร้อมใช้งาน ---- */
+    var hero = el('div', { class: 'dash-hero' }, [
+      el('div', { class: 'ring', html: ringSvg(parseInt(k.availability_pct, 10) || 0) }),
+      el('div', { class: 'h-main' }, [
+        el('div', { class: 'h-title', text: 'ความพร้อมใช้งานระบบกล้อง' }),
+        el('div', { class: 'h-big', text: k.usable + ' / ' + activeTotal + ' ตัว พร้อมใช้งาน' }),
+        el('div', { class: 'h-sub', html:
+          'ใช้งานได้ <b>' + k.usable + '</b> &nbsp;·&nbsp; ไม่พร้อมใช้ <b>' + k.not_ready + '</b> &nbsp;·&nbsp; ' +
+          'ยกเลิกใช้งาน <b>' + k.decommissioned + '</b> &nbsp;·&nbsp; รวมทั้งหมด <b>' + k.total + '</b>' }),
+      ]),
+    ]);
+    dash.appendChild(hero);
+
+    /* ---- Tiles ---- */
+    dash.appendChild(el('div', { class: 'dash-tiles' }, [
+      tileCard(k.total, 'กล้องทั้งหมด', 'var(--text-dim)'),
+      tileCard(k.usable, 'ใช้งานได้', 'var(--ok)'),
+      tileCard(k.not_ready, 'ไม่พร้อมใช้', 'var(--bad)'),
+      tileCard(k.open_maintenance, 'งานซ่อมค้าง', 'var(--warn)'),
     ]));
 
-    var cols = el('div', { class: 'grid cols2 mt' }, [
-      breakdownCard('แยกตามสถานะ', d.by_status, 'count'),
-      breakdownCard('แยกตามประเภทกล้อง', d.by_type, 'count'),
+    /* ---- สัดส่วนสถานะ / ประเภท ---- */
+    var statusColor = labelColorMap('status', function (v) { return _statusColor(v); });
+    var typeColor = labelColorMap('camera_type', function (v) { return _camFamily({ camera_type: v, camera_subtype: '' }).bg; });
+    dash.appendChild(el('div', { class: 'dash-2col' }, [
+      segCard('สัดส่วนตามสถานะ', d.by_status, statusColor),
+      segCard('สัดส่วนตามประเภทกล้อง', d.by_type, typeColor),
+    ]));
+
+    /* ---- แยกตามหน่วยงาน ---- */
+    dash.appendChild(el('div', { class: 'dash-sec' }, [
+      el('h3', { class: 'dash-h', text: 'แยกตามหน่วยงาน' }),
+      unitList(d.by_unit || []),
+    ]));
+
+    /* ---- งานซ่อมค้าง ---- */
+    var mnt = d.open_maintenance_list || [];
+    var mSec = el('div', { class: 'dash-sec' }, [
+      el('h3', { class: 'dash-h', text: 'งานซ่อมที่ยังไม่ปิด (' + mnt.length + ')' }),
+      miniMaintList(mnt.slice(0, 6)),
     ]);
-    host.appendChild(cols);
+    if (mnt.length > 6) mSec.appendChild(el('button', { class: 'btn ghost sm', style: 'align-self:flex-start', onclick: function () { go('maintenance'); }, text: 'ดูงานซ่อมทั้งหมด →' }));
+    dash.appendChild(mSec);
 
-    host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'แยกตามหน่วยงาน' })]));
-    host.appendChild(unitTable(d.by_unit));
-
-    host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'งานซ่อมที่ยังไม่ปิด' })]));
-    host.appendChild(miniMaintList(d.open_maintenance_list));
-
-    host.appendChild(el('p', { class: 'muted center mt', text: 'ข้อมูล ณ ' + fmtDateTime(d.generated_at) }));
+    dash.appendChild(el('p', { class: 'muted center', style: 'font-size:.8rem;margin:4px 0 0', text: 'อัปเดตล่าสุด ' + fmtDateTime(d.generated_at) }));
+    host.appendChild(dash);
   });
 }
 function kpiCard(num, lbl, cls) {
   return el('div', { class: 'card ' + (cls || '') }, [
     el('div', { class: 'num', text: String(num) }),
     el('div', { class: 'lbl', text: lbl }),
+  ]);
+}
+function tileCard(num, lbl, dotColor) {
+  return el('div', { class: 'tile' }, [
+    el('div', { class: 't-num', text: String(num) }),
+    el('div', { class: 't-lbl', style: '--dot:' + dotColor, text: lbl }),
+  ]);
+}
+function ringSvg(pct) {
+  var R = 34, C = 2 * Math.PI * R;
+  var dash = (C * Math.max(0, Math.min(100, pct)) / 100).toFixed(1) + ' ' + C.toFixed(1);
+  return '<svg width="86" height="86" viewBox="0 0 86 86" role="img" aria-label="ความพร้อมใช้งาน ' + pct + '%">' +
+    '<circle cx="43" cy="43" r="' + R + '" fill="none" stroke="var(--muted-bg)" stroke-width="9"/>' +
+    '<circle cx="43" cy="43" r="' + R + '" fill="none" stroke="var(--primary)" stroke-width="9" stroke-linecap="round"' +
+    ' stroke-dasharray="' + dash + '" transform="rotate(-90 43 43)"/>' +
+    '<text x="43" y="44" text-anchor="middle" dominant-baseline="middle" class="ring-num">' + pct + '%</text>' +
+    '</svg>';
+}
+function labelColorMap(list, fn) {
+  var m = {};
+  (STATE.lookups[list] || []).forEach(function (o) { m[o.label] = fn(o.value); });
+  return m;
+}
+function segCard(title, arr, colorMap) {
+  arr = arr || [];
+  var total = arr.reduce(function (s, x) { return s + (x.count || 0); }, 0) || 1;
+  var pal = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6', '#64748b'];
+  var bar = el('div', { class: 'segbar' });
+  var legend = el('div', { class: 'seg-legend' });
+  arr.forEach(function (x, i) {
+    var col = colorMap[x.label] || pal[i % pal.length];
+    if (x.count > 0) bar.appendChild(el('span', { style: 'width:' + (x.count / total * 100) + '%;background:' + col, title: x.label + ' · ' + x.count }));
+    legend.appendChild(el('span', { class: 'lg', html: '<i style="background:' + col + '"></i>' + esc(x.label) + ' <b>' + x.count + '</b>' }));
+  });
+  return el('div', { class: 'card' }, [
+    el('h3', { class: 'dash-h', style: 'margin-bottom:12px', text: title }),
+    bar, legend,
   ]);
 }
 function breakdownCard(title, arr, key) {
@@ -846,20 +958,18 @@ function breakdownCard(title, arr, key) {
   });
   return el('div', { class: 'card' }, [el('h3', { text: title })].concat(rows));
 }
-function unitTable(arr) {
-  var wrap = el('div', { class: 'table-wrap' });
-  var t = el('table', { class: 'data' });
-  t.className = 'data fixed';
-  t.innerHTML = '<colgroup><col><col class="col-sm"><col class="col-sm"><col class="col-md"></colgroup>' +
-    '<thead><tr><th>หน่วยงาน</th><th class="num">ทั้งหมด</th><th class="num">ใช้ได้</th><th class="num">พร้อมใช้ %</th></tr></thead>';
-  var tb = el('tbody');
+function unitList(arr) {
+  var box = el('div', { class: 'unit-list' });
+  if (!arr.length) return el('div', { class: 'empty', text: 'ยังไม่มีข้อมูลหน่วยงาน' });
   arr.forEach(function (u) {
     var pct = u.total ? Math.round(u.usable / u.total * 100) : 0;
-    var tr = el('tr', { onclick: function () { go('cameras'); setTimeout(function () { setCameraFilter('unit', u.unit); }, 60); } });
-    tr.innerHTML = '<td>' + esc(u.unit) + '</td><td class="num">' + u.total + '</td><td class="num">' + u.usable + '</td><td class="num">' + pct + '%</td>';
-    tb.appendChild(tr);
+    box.appendChild(el('div', { class: 'unit-row', title: 'ดูกล้องของ ' + u.unit, onclick: function () { go('cameras'); setTimeout(function () { setCameraFilter('unit', u.unit); }, 60); } }, [
+      el('span', { class: 'u-name', text: u.unit }),
+      el('span', { class: 'u-val', text: u.usable + '/' + u.total + ' ตัว · ' + pct + '%' }),
+      el('span', { class: 'u-track' }, [el('i', { style: 'width:' + pct + '%' })]),
+    ]));
   });
-  t.appendChild(tb); wrap.appendChild(t); return wrap;
+  return box;
 }
 function miniMaintList(arr) {
   if (!arr || !arr.length) return el('div', { class: 'empty', text: 'ไม่มีงานซ่อมค้าง 🎉' });
