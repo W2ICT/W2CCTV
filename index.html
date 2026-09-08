@@ -446,9 +446,6 @@
   .leaflet-container a.leaflet-popup-close-button { color: var(--text-dim); }
   .leaflet-control-attribution { background: var(--surface); color: var(--text-dim); }
   .leaflet-control-attribution a { color: var(--text-dim); }
-  .leaflet-control-rotate { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
-  .leaflet-control-rotate .leaflet-control-rotate-arrow { filter: var(--leaflet-icon-filter, none); }
-  .app.rot-locked .leaflet-control-rotate { display: none; }
   .edit-pin { cursor: grab; }
   .edit-pin:active, .leaflet-dragging .edit-pin { cursor: grabbing; }
   .edit-pin i { display: block; width: 24px; height: 24px; margin: 2px; border-radius: 50%; background: #f59e0b; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(245,158,11,.5), 0 2px 6px rgba(0,0,0,.5); animation: editpulse 1.6s ease-out infinite; }
@@ -541,8 +538,6 @@
   <div id="toastRoot"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <!-- ปลั๊กอินหมุนแผนที่ (ถ้าโหลดไม่ได้ แผนที่ยังทำงานปกติแบบล็อกทิศเหนือ) -->
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
   <script>
 /* ============================================================
  * CCTV Web App — client (vanilla JS) — เวอร์ชันเปิดไฟล์แยกเดี่ยว
@@ -1840,27 +1835,6 @@ function _camIcon(c) {
 var MAP_FILTER = { camera_type: '', camera_subtype: '', status: '' };
 var ACTIVE_LAYERS = null;   // { camera_type: true/false } — เลเยอร์ที่เปิดแสดง (null = ยังไม่ตั้ง)
 var _mapReady = false;
-var _canRotate = false;     // ปลั๊กอิน leaflet-rotate โหลดสำเร็จหรือไม่
-var _rotLocked = false;     // ล็อกทิศเหนือ (ปิดการหมุน)
-
-/** เปิด/ปิดการหมุนแผนที่ + อัปเดตปุ่ม + จำสถานะ */
-function applyMapLock(locked) {
-  _rotLocked = !!locked;
-  var app = document.getElementById('app');
-  if (app) app.classList.toggle('rot-locked', _rotLocked);
-  var lb = document.getElementById('lockBtn');
-  if (lb) lb.textContent = _rotLocked ? '🔒 ล็อกทิศเหนือ' : '🔓 หมุนแผนที่ได้';
-  var nb = document.getElementById('northBtn');
-  if (nb) nb.style.display = _rotLocked ? 'none' : '';
-  if (_map) {
-    if (_rotLocked && _map.setBearing) _map.setBearing(0);
-    [_map.touchRotate, _map.shiftKeyRotate].forEach(function (h) {
-      if (h && h.enable) { _rotLocked ? h.disable() : h.enable(); }
-    });
-  }
-  try { localStorage.setItem('cctv_maplock', _rotLocked ? '1' : '0'); } catch (e) {}
-}
-function toggleMapLock() { applyMapLock(!_rotLocked); }
 
 function _geoCams() { return _allCams.filter(function (c) { return c.latitude != null && c.longitude != null; }); }
 
@@ -1889,15 +1863,7 @@ function initMapStage() {
   // ปุ่มเครื่องมือบนแผนที่
   var tools = document.getElementById('mapTools');
   tools.innerHTML = '';
-  tools.appendChild(el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลางฐานบิน + หันทิศเหนือ', onclick: function () {
-    if (!_map) return;
-    _map.setView(MAP_CENTER, MAP_ZOOM);
-    if (_map.setBearing) _map.setBearing(0);
-  } }, ['◎ กึ่งกลาง']));
-  tools.appendChild(el('button', { class: 'btn sm', id: 'lockBtn', title: 'ล็อก/ปลดล็อกการหมุนแผนที่  (หมุน: กด Shift ค้างแล้วลาก หรือสองนิ้วบิดบนจอสัมผัส)', onclick: toggleMapLock }, ['🔓 หมุนแผนที่ได้']));
-  tools.appendChild(el('button', { class: 'btn sm', id: 'northBtn', title: 'รีเซ็ตแผนที่กลับทิศเหนือ', onclick: function () {
-    if (_map && _map.setBearing) _map.setBearing(0);
-  } }, ['🧭 รีเซ็ตทิศเหนือ']));
+  tools.appendChild(el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลางฐานบิน', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ กึ่งกลาง']));
   if (isAdmin) tools.appendChild(el('button', { class: 'btn sm', title: 'ส่งออกพิกัดกล้องเป็นไฟล์ KML', onclick: exportCamerasKml }, ['⬇️ KML']));
   tools.appendChild(el('button', { class: 'btn sm', title: 'เต็มจอ', onclick: function () { _mapFullscreen(document.getElementById('stage')); } }, ['⛶']));
 
@@ -1915,17 +1881,7 @@ function initMapStage() {
 }
 
 function _initLeaflet(isAdmin) {
-  // rotate: หมุนแผนที่ได้ (ไม่ล็อกทิศเหนือ) — ต้องมีปลั๊กอิน leaflet-rotate
-  //   หมุน: Shift+ลาก (เดสก์ท็อป) / สองนิ้วบิด (จอสัมผัส) ; ป้าย/หมุด/Popup ตั้งตรงเสมอ
-  _canRotate = typeof L.Map.prototype.setBearing === 'function';
-  if (!_canRotate) {
-    ['lockBtn', 'northBtn'].forEach(function (id) { var b = document.getElementById(id); if (b) b.style.display = 'none'; });
-  }
-  _map = L.map('map', {
-    zoomControl: false, maxZoom: 22,
-    rotate: true, bearing: 0, rotateControl: false,
-    touchRotate: true, shiftKeyRotate: true,
-  });
+  _map = L.map('map', { zoomControl: false, maxZoom: 22 });
   var GOOGLE_SUBS = ['mt0', 'mt1', 'mt2', 'mt3'];
   var gSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google' });
   var gHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google' });
@@ -1937,7 +1893,6 @@ function _initLeaflet(isAdmin) {
   (bases[savedBase] || gSat).addTo(_map);
   L.control.zoom({ position: 'bottomright' }).addTo(_map);
   L.control.layers(bases, null, { collapsed: true, position: 'bottomright' }).addTo(_map);
-  if (_canRotate && L.control.rotate) L.control.rotate({ position: 'bottomright', closeOnZeroBearing: true }).addTo(_map);
   _map.on('baselayerchange', function (e) { try { localStorage.setItem('cctv_maplayer', e.name); } catch (err) {} });
 
   _map.setView(MAP_CENTER, MAP_ZOOM);
@@ -1955,12 +1910,6 @@ function _initLeaflet(isAdmin) {
       }
       openCoordPopup(e.latlng, null);
     });
-  }
-
-  // คืนสถานะล็อกทิศเหนือ (ค่าเริ่มต้น: ปลดล็อก = หมุนได้)
-  if (_canRotate) {
-    var savedLock; try { savedLock = localStorage.getItem('cctv_maplock'); } catch (e) {}
-    applyMapLock(savedLock === '1');
   }
 
   loadCams();
