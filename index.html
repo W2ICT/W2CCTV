@@ -1555,6 +1555,7 @@ function viewMap(host) {
   host.innerHTML = '';
   var isAdmin = STATE.role === 'admin';
   var cntChip = el('span', { class: 'chip' });
+  var mapFilter = { camera_type: '', camera_subtype: '' };
 
   var head = el('div', { class: 'section-head' }, [
     el('h2', { text: 'แผนที่จุดติดตั้ง' }),
@@ -1564,6 +1565,10 @@ function viewMap(host) {
   ]);
   host.appendChild(head);
   if (isAdmin) host.appendChild(el('p', { class: 'muted', style: 'margin:0 0 10px', text: '📍 คลิกบนแผนที่ตรงตำแหน่งกล้อง → เลือกกล้องในป๊อปอัป → บันทึก  (หรือคลิกหมุดกล้องเดิม ▸ แก้ไขพิกัด แล้วลากหมุดสีส้ม)' }));
+
+  var fType = el('select', { onchange: function (e) { mapFilter.camera_type = e.target.value; plotCameras(); } });
+  var fSub = el('select', { onchange: function (e) { mapFilter.camera_subtype = e.target.value; plotCameras(); } });
+  host.appendChild(el('div', { class: 'filters', style: 'margin:0 0 10px' }, [fType, fSub]));
 
   var mapWrap = el('div', { class: 'map-wrap' }, [
     el('div', { id: 'map' }),
@@ -1604,7 +1609,30 @@ function viewMap(host) {
 
   function reloadCams() {
     return api('cameras.list', { filters: {} }).then(function (rows) {
-      _allCams = rows; STATE.cameras = rows; plotCameras(); updateCounter();
+      _allCams = rows; STATE.cameras = rows; fillMapFilters(); plotCameras(); updateCounter();
+    });
+  }
+
+  /** เติมตัวเลือกฟิลเตอร์ ประเภท/ชนิดย่อย จากกล้องที่มีพิกัดจริงบนแผนที่ */
+  function fillMapFilters() {
+    [['camera_type', fType, 'ทุกประเภท'], ['camera_subtype', fSub, 'ทุกชนิดย่อย']].forEach(function (t) {
+      var key = t[0], s = t[1], cur = mapFilter[key] || '', set = {};
+      _allCams.forEach(function (c) {
+        if (c.latitude == null || c.longitude == null) return;
+        var v = (c[key] == null ? '' : String(c[key])).trim();
+        if (v) set[v] = true;
+      });
+      var vals = Object.keys(set);
+      if (cur && vals.indexOf(cur) === -1) vals.push(cur);
+      vals.sort(function (a, b) { return labelOf(key, a).localeCompare(labelOf(key, b), 'th'); });
+      s.innerHTML = '';
+      s.appendChild(el('option', { value: '', text: t[2] }));
+      vals.forEach(function (v) {
+        var op = el('option', { value: v, text: labelOf(key, v) });
+        if (v === cur) op.selected = true;
+        s.appendChild(op);
+      });
+      s.value = cur;
     });
   }
 
@@ -1697,16 +1725,18 @@ function viewMap(host) {
     var withGeo = 0;
     _allCams.forEach(function (c) {
       if (c.latitude == null || c.longitude == null) return;
+      if (mapFilter.camera_type && c.camera_type !== mapFilter.camera_type) return;
+      if (mapFilter.camera_subtype && (c.camera_subtype || '') !== mapFilter.camera_subtype) return;
       withGeo++;
       if (c.camera_id === _editCamId) return;   // กำลังแก้พิกัดตัวนี้ → ซ่อนหมุดปกติ
       var mk = L.marker([c.latitude, c.longitude], { icon: _camIcon(c) });
-      var sub = c.camera_subtype || labelOf('camera_type', c.camera_type);
       mk.bindPopup(
         '<div style="text-align:center;line-height:1.35">' +
         '<b>' + esc(c.camera_id) + '</b>' +
         '<div style="margin-top:3px">' +
         esc(c.location || '—') + '<br>' +
-        esc(sub || '—') + '<br>' +
+        esc(labelOf('camera_type', c.camera_type) || '—') + '<br>' +
+        esc(c.camera_subtype || '—') + '<br>' +
         esc(labelOf('status', c.status)) +
         '</div>' +
         (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:5px">✎ แก้ไขพิกัด</a>' : '') +
@@ -1721,13 +1751,14 @@ function viewMap(host) {
       _camLayer.addLayer(mk);
     });
     var note = document.getElementById('mapNote');
+    var filtered = !!(mapFilter.camera_type || mapFilter.camera_subtype);
     if (note) note.textContent = withGeo
-      ? ('แสดง ' + withGeo + ' กล้องที่มีพิกัด · กึ่งกลาง ' + MAP_CENTER_LABEL)
-      : ('ยังไม่มีกล้องที่กรอกพิกัด GPS — กึ่งกลางล็อกที่ ' + MAP_CENTER_LABEL);
+      ? ('แสดง ' + withGeo + ' กล้อง' + (filtered ? ' (กรองแล้ว)' : 'ที่มีพิกัด') + ' · กึ่งกลาง ' + MAP_CENTER_LABEL)
+      : (filtered ? 'ไม่พบกล้องที่ตรงกับตัวกรอง' : ('ยังไม่มีกล้องที่กรอกพิกัด GPS — กึ่งกลางล็อกที่ ' + MAP_CENTER_LABEL));
   }
 
   return api('cameras.list', { filters: {} }).then(function (rows) {
-    _allCams = rows; STATE.cameras = rows;
+    _allCams = rows; STATE.cameras = rows; fillMapFilters();
     setTimeout(function () {
       if (_map) { _map.remove(); _map = null; }
       _camLayer = null; _editMarker = null;
