@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+  /* ================= ธีม / ตัวแปรสี ================= */
+  :root {
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-dim: #64748b;
+    --primary: #1d4ed8;
+    --primary-ink: #ffffff;
+    --ok: #15803d;
+    --ok-bg: #dcfce7;
+    --warn: #b45309;
+    --warn-bg: #fef3c7;
+    --bad: #b91c1c;
+    --bad-bg: #fee2e2;
+    --muted-bg: #e2e8f0;
+    --shadow: 0 1px 3px rgba(15, 23, 42, .12), 0 1px 2px rgba(15, 23, 42, .06);
+    --radius: 14px;
+    --nav-h: 64px;
+    --tap: 44px;
+    --maxw: 1200px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1220; --surface: #121a2b; --surface-2: #0f1728; --border: #24314a;
+      --text: #e8eefc; --text-dim: #93a4c3; --primary: #3b82f6; --primary-ink: #06122b;
+      --ok: #4ade80; --ok-bg: #06331d; --warn: #fbbf24; --warn-bg: #3a2a05;
+      --bad: #f87171; --bad-bg: #3a1414; --muted-bg: #24314a;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Sarabun', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 16px; line-height: 1.55;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1, h2, h3, h4 { margin: 0 0 .4em; line-height: 1.3; font-weight: 700; }
+  h1 { font-size: 1.35rem; }
+  h2 { font-size: 1.15rem; }
+  h3 { font-size: 1rem; }
+  a { color: var(--primary); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  /* ================= Layout ================= */
+  .app { display: none; min-height: 100vh; }
+  .app.ready { display: block; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top));
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .topbar .title { font-weight: 700; font-size: 1.05rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .role-badge {
+    font-size: .78rem; padding: 3px 9px; border-radius: 999px;
+    background: var(--muted-bg); color: var(--text-dim);
+  }
+  .topbar .role-badge.admin { background: var(--primary); color: var(--primary-ink); }
+
+  .shell { display: flex; max-width: var(--maxw); margin: 0 auto; }
+
+  .sidebar { display: none; }
+  @media (min-width: 900px) {
+    .sidebar {
+      display: flex; flex-direction: column; gap: 4px;
+      width: 220px; flex-shrink: 0; padding: 16px 10px;
+      position: sticky; top: 57px; align-self: flex-start; height: calc(100vh - 57px);
+    }
+    .sidebar button {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; border-radius: 10px; border: 0; background: transparent;
+      cursor: pointer; text-align: left; width: 100%; font-size: .98rem;
+    }
+    .sidebar button .ic { font-size: 1.15rem; width: 22px; text-align: center; }
+    .sidebar button:hover { background: var(--surface); }
+    .sidebar button.active { background: var(--primary); color: var(--primary-ink); font-weight: 600; }
+  }
+
+  main { flex: 1; min-width: 0; padding: 16px 14px calc(var(--nav-h) + 28px); }
+  @media (min-width: 900px) { main { padding-bottom: 40px; } }
+
+  /* ================= Bottom nav (มือถือ) ================= */
+  .botnav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .botnav button {
+    border: 0; background: transparent; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-height: var(--nav-h); padding: 6px 2px; color: var(--text-dim); font-size: .7rem;
+  }
+  .botnav button .ic { font-size: 1.3rem; line-height: 1; }
+  .botnav button.active { color: var(--primary); font-weight: 700; }
+  @media (min-width: 900px) { .botnav { display: none; } }
+
+  /* ================= การ์ด / กริด ================= */
+  .grid { display: grid; gap: 12px; }
+  .grid.kpi { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 640px) { .grid.kpi { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 900px) { .grid.kpi { grid-template-columns: repeat(6, 1fr); } }
+  .grid.cols2 { grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .grid.cols2 { grid-template-columns: 1fr 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow);
+  }
+  .kpi .card { text-align: center; padding: 12px 8px; }
+  .kpi .num { font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; }
+  .kpi .lbl { font-size: .8rem; color: var(--text-dim); }
+  .kpi .card.accent .num { color: var(--primary); }
+  .kpi .card.ok .num { color: var(--ok); }
+  .kpi .card.bad .num { color: var(--bad); }
+
+  .section-head { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; }
+  .section-head h2 { margin: 0; flex: 1; }
+
+  /* ================= ตาราง / รายการ ================= */
+  .list { display: grid; gap: 10px; }
+  .row-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; cursor: pointer; display: grid; gap: 4px;
+  }
+  .row-card:hover { border-color: var(--primary); }
+  .row-card .r1 { display: flex; align-items: center; gap: 8px; }
+  .row-card .id { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .row-card .sub { color: var(--text-dim); font-size: .9rem; }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: .93rem; }
+  table.data th, table.data td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.data th { color: var(--text-dim); font-weight: 600; position: sticky; top: 57px; background: var(--surface); }
+  table.data tr { cursor: pointer; }
+  table.data tbody tr:hover td { background: var(--surface-2); }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .only-desktop { display: none; }
+  .only-mobile { display: block; }
+  @media (min-width: 900px) { .only-desktop { display: block; } .only-mobile { display: none; } }
+
+  /* ================= Badge สถานะ ================= */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+  .badge.s-USABLE { background: var(--ok-bg); color: var(--ok); }
+  .badge.s-UNUSABLE { background: var(--bad-bg); color: var(--bad); }
+  .badge.s-REPAIRING { background: var(--warn-bg); color: var(--warn); }
+  .badge.s-PENDING_INSTALL { background: var(--muted-bg); color: var(--text-dim); }
+  .badge.s-DECOMMISSIONED { background: var(--muted-bg); color: var(--text-dim); text-decoration: line-through; }
+  .badge.r-PENDING { background: var(--warn-bg); color: var(--warn); }
+  .badge.r-IN_PROGRESS { background: var(--warn-bg); color: var(--warn); }
+  .badge.r-DONE { background: var(--ok-bg); color: var(--ok); }
+  .badge.r-CANCELLED { background: var(--muted-bg); color: var(--text-dim); }
+
+  /* ================= ฟอร์ม / ปุ่ม ================= */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: var(--tap); padding: 0 16px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 600;
+  }
+  .btn:hover { border-color: var(--primary); }
+  .btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+  .btn.danger { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-bg); }
+  .btn.ghost { background: transparent; }
+  .btn.sm { min-height: 36px; padding: 0 12px; font-size: .88rem; }
+  .btn.block { width: 100%; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: .88rem; color: var(--text-dim); margin-bottom: 5px; font-weight: 600; }
+  .field input, .field select, .field textarea {
+    width: 100%; min-height: var(--tap); padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+  }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .field .req { color: var(--bad); }
+  .field-row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+
+  .filters { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
+  @media (min-width: 900px) { .filters { grid-template-columns: 2fr repeat(4, 1fr); } }
+  .filters input, .filters select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); width: 100%; }
+
+  /* ================= Modal / Sheet ================= */
+  .scrim {
+    position: fixed; inset: 0; background: rgba(2, 6, 23, .55); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  @media (min-width: 700px) { .scrim { align-items: center; } }
+  .sheet {
+    background: var(--surface); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto;
+    border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 700px) { .sheet { border-radius: 16px; max-height: 88vh; } }
+  .sheet .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sheet .sheet-head h2 { margin: 0; flex: 1; }
+  .sheet .x { border: 0; background: transparent; font-size: 1.5rem; cursor: pointer; width: 40px; height: 40px; color: var(--text-dim); }
+
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: .95rem; }
+  .kv dt { color: var(--text-dim); }
+  .kv dd { margin: 0; }
+
+  .photos { display: flex; gap: 8px; flex-wrap: wrap; }
+  .photos a, .photos .thumb { width: 74px; height: 74px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); display: block; background: var(--surface-2); }
+  .photos img { width: 100%; height: 100%; object-fit: cover; }
+
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 4px 10px; border-radius: 999px; background: var(--muted-bg); font-size: .85rem; }
+
+  /* ================= Login ================= */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 28px 22px; width: 100%; max-width: 380px; text-align: center; }
+  .login-card .logo { font-size: 2.4rem; }
+  .login-card h1 { font-size: 1.2rem; margin-top: 6px; }
+  .login-card p.hint { color: var(--text-dim); font-size: .88rem; margin: 4px 0 18px; }
+
+  /* ================= อื่น ๆ ================= */
+  .muted { color: var(--text-dim); }
+  .center { text-align: center; }
+  .mt { margin-top: 14px; }
+  .empty { text-align: center; color: var(--text-dim); padding: 36px 12px; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px); transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px;
+    z-index: 80; font-size: .9rem; max-width: 90vw; box-shadow: var(--shadow);
+  }
+  @media (min-width: 900px) { .toast { bottom: 24px; } }
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #map { width: 100%; height: 62vh; border-radius: 12px; border: 1px solid var(--border); }
+  .bar { height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--primary); }
+</style>
+</head>
+<body>
+
+  <!-- ---------- หน้าเข้าสู่ระบบ ---------- -->
+  <div id="login" class="login-wrap">
+    <form class="login-card" id="loginForm">
+      <div class="logo">📹</div>
+      <h1 id="loginTitle">ระบบฐานข้อมูล CCTV</h1>
+      <p class="hint">กรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+      <div class="field">
+        <input type="password" id="pw" placeholder="รหัสผ่าน" autocomplete="current-password" required>
+      </div>
+      <button class="btn primary block" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
+      <p class="hint mt" id="loginErr" style="color:var(--bad);min-height:1.2em"></p>
+    </form>
+  </div>
+
+  <!-- ---------- แอปหลัก ---------- -->
+  <div class="app" id="app">
+    <div class="topbar">
+      <span style="font-size:1.3rem">📹</span>
+      <span class="title" id="appTitle">ระบบฐานข้อมูล CCTV</span>
+      <span class="role-badge" id="roleBadge">viewer</span>
+      <button class="btn ghost sm" id="logoutBtn" title="ออกจากระบบ">ออก</button>
+    </div>
+
+    <div class="shell">
+      <nav class="sidebar" id="sidebar"></nav>
+      <main id="view"><div class="empty"><span class="spinner"></span> กำลังโหลด…</div></main>
+    </div>
+
+    <nav class="botnav" id="botnav"></nav>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script>
+/* ============================================================
+ * CCTV Web App — client (vanilla JS) — เวอร์ชันเปิดไฟล์แยกเดี่ยว
+ * คุยกับ backend (Apps Script) ผ่าน fetch ไปที่ API_URL ด้านล่าง
+ * ========================================================== */
+'use strict';
+
+/* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
+var API_URL = 'https://script.google.com/macros/s/AKfycbw1OkAXQAvQfMAv0wO9eXGfkig6Bjol3NBqHo1BshCiYtctuExvlRm-TZ2hEn5Xebhe/exec';
+
+/* ---------- สถานะรวม ---------- */
+var STATE = {
+  token: null,
+  role: 'viewer',
+  lookups: {},        // { status:[{value,label}], ... }
+  labels: {},         // { status:{USABLE:'ใช้งานได้'}, ... }
+  dashboard: null,
+  cameras: [],        // cache รายการกล้อง (สำหรับ picker/แผนที่)
+  view: 'dashboard',
+};
+
+var TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+var NAV = [
+  { id: 'dashboard',   label: 'ภาพรวม',  ic: '📊' },
+  { id: 'cameras',     label: 'กล้อง',    ic: '📹' },
+  { id: 'inspect',     label: 'ตรวจ',     ic: '📝' },
+  { id: 'maintenance', label: 'ซ่อม',     ic: '🔧' },
+  { id: 'map',         label: 'แผนที่',   ic: '🗺️' },
+];
+var NAV_MORE = [
+  { id: 'export',   label: 'ส่งออก',    ic: '📤' },
+  { id: 'settings', label: 'ตั้งค่า',   ic: '⚙️', adminOnly: true },
+];
+
+/* ============================================================
+ * เรียก server
+ * ========================================================== */
+function api(action, payload) {
+  // ใช้ Content-Type text/plain เพื่อเลี่ยง CORS preflight ของ Apps Script
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: action, payload: payload || {}, token: STATE.token }),
+  }).then(function (r) {
+    if (!r.ok) throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (HTTP ' + r.status + ')');
+    return r.json();
+  }).then(function (res) {
+    if (res && res.ok) return res.data;
+    throw new Error(res && res.error ? res.error : 'เกิดข้อผิดพลาด');
+  }).catch(function (err) {
+    if (err instanceof TypeError) throw new Error('เชื่อมต่อ API ไม่ได้ — ตรวจ API_URL และตั้ง Deploy เป็น "Anyone"');
+    throw err;
+  });
+}
+
+/* ============================================================
+ * Helpers
+ * ========================================================== */
+function el(tag, attrs, children) {
+  var e = document.createElement(tag);
+  attrs = attrs || {};
+  Object.keys(attrs).forEach(function (k) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'html') e.innerHTML = attrs[k];
+    else if (k === 'text') e.textContent = attrs[k];
+    else if (k.slice(0, 2) === 'on' && typeof attrs[k] === 'function') e.addEventListener(k.slice(2), attrs[k]);
+    else if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+  });
+  (children || []).forEach(function (c) {
+    if (c === null || c === undefined) return;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return e;
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+function labelOf(list, code) { return (STATE.labels[list] && STATE.labels[list][code]) || code || '—'; }
+function optionsFor(list) { return (STATE.lookups[list] || []); }
+
+function fmtDate(s) {
+  if (!s) return '—';
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return s;
+  return parseInt(m[3], 10) + ' ' + TH_MONTHS[parseInt(m[2], 10) - 1] + ' ' + (parseInt(m[1], 10) + 543);
+}
+function fmtDateTime(s) {
+  if (!s) return '—';
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return s;
+  return parseInt(m[3], 10) + ' ' + TH_MONTHS[parseInt(m[2], 10) - 1] + ' ' + (parseInt(m[1], 10) + 543) + ' ' + m[4] + ':' + m[5];
+}
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function statusBadge(code) { return '<span class="badge s-' + esc(code) + '">' + esc(labelOf('status', code)) + '</span>'; }
+function repairBadge(code) { return '<span class="badge r-' + esc(code) + '">' + esc(labelOf('repair_status', code)) + '</span>'; }
+
+function toast(msg) {
+  var root = document.getElementById('toastRoot');
+  var t = el('div', { class: 'toast', text: msg });
+  root.appendChild(t);
+  setTimeout(function () { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 2200);
+  setTimeout(function () { root.removeChild(t); }, 2600);
+}
+
+/* ---------- Modal / Sheet ---------- */
+function openSheet(title, bodyNode, opts) {
+  opts = opts || {};
+  closeSheet();
+  var head = el('div', { class: 'sheet-head' }, [
+    el('h2', { text: title }),
+    el('button', { class: 'x', html: '&times;', onclick: closeSheet }),
+  ]);
+  var sheet = el('div', { class: 'sheet' }, [head, bodyNode]);
+  var scrim = el('div', { class: 'scrim', id: 'scrim', onclick: function (e) { if (e.target === scrim && !opts.sticky) closeSheet(); } }, [sheet]);
+  document.getElementById('modalRoot').appendChild(scrim);
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet() {
+  var r = document.getElementById('modalRoot');
+  r.innerHTML = '';
+  document.body.style.overflow = '';
+}
+
+/* ---------- ปุ่มโหลด ---------- */
+function busy(btn, on, textWhenIdle) {
+  if (on) { btn.dataset.idle = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  else { btn.disabled = false; btn.textContent = textWhenIdle || btn.dataset.idle || 'บันทึก'; }
+}
+
+/* ============================================================
+ * เข้าสู่ระบบ
+ * ========================================================== */
+function initLogin() {
+  var form = document.getElementById('loginForm');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('loginBtn');
+    var err = document.getElementById('loginErr');
+    err.textContent = '';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    api('auth.login', { password: document.getElementById('pw').value })
+      .then(function (d) {
+        STATE.token = d.token;
+        try { sessionStorage.setItem('cctv_token', d.token); } catch (e2) {}
+        return bootstrap();
+      })
+      .catch(function (ex) {
+        err.textContent = ex.message || 'เข้าสู่ระบบไม่สำเร็จ';
+        btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+      });
+  });
+
+  var saved = null;
+  try { saved = sessionStorage.getItem('cctv_token'); } catch (e) {}
+  if (saved) {
+    STATE.token = saved;
+    bootstrap().catch(function () {
+      STATE.token = null;
+      try { sessionStorage.removeItem('cctv_token'); } catch (e) {}
+    });
+  }
+}
+
+function bootstrap() {
+  return api('bootstrap').then(function (d) {
+    STATE.role = d.role;
+    STATE.lookups = d.lookups || {};
+    STATE.dashboard = d.dashboard;
+    STATE.labels = {};
+    Object.keys(STATE.lookups).forEach(function (list) {
+      STATE.labels[list] = {};
+      STATE.lookups[list].forEach(function (o) { STATE.labels[list][o.value] = o.label; });
+    });
+    document.getElementById('appTitle').textContent = d.app_title || 'ระบบฐานข้อมูล CCTV';
+    document.title = d.app_title || 'ระบบฐานข้อมูล CCTV';
+    var rb = document.getElementById('roleBadge');
+    rb.textContent = d.role === 'admin' ? 'Admin' : 'Viewer';
+    rb.className = 'role-badge' + (d.role === 'admin' ? ' admin' : '');
+
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+    buildNav();
+    document.getElementById('logoutBtn').onclick = doLogout;
+    go('dashboard');
+  });
+}
+
+function doLogout() {
+  api('auth.logout').catch(function () {});
+  STATE.token = null;
+  try { sessionStorage.removeItem('cctv_token'); } catch (e) {}
+  location.reload();
+}
+
+/* ============================================================
+ * เมนู / เราเตอร์
+ * ========================================================== */
+function navItems() {
+  return NAV.concat(NAV_MORE).filter(function (n) { return !n.adminOnly || STATE.role === 'admin'; });
+}
+function buildNav() {
+  var side = document.getElementById('sidebar');
+  side.innerHTML = '';
+  navItems().forEach(function (n) {
+    side.appendChild(el('button', { 'data-nav': n.id, onclick: function () { go(n.id); } }, [
+      el('span', { class: 'ic', text: n.ic }), document.createTextNode(n.label),
+    ]));
+  });
+  var bot = document.getElementById('botnav');
+  bot.innerHTML = '';
+  NAV.forEach(function (n) {
+    bot.appendChild(el('button', { 'data-nav': n.id, onclick: function () { go(n.id); } }, [
+      el('span', { class: 'ic', text: n.ic }), document.createTextNode(n.label),
+    ]));
+  });
+  // ปุ่ม "เพิ่มเติม" บนมือถือแทนช่องที่ 5? -> ใช้เมนู 5 หลัก + เข้าถึง export/settings ผ่านหน้า dashboard
+}
+function markNav() {
+  document.querySelectorAll('[data-nav]').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-nav') === STATE.view);
+  });
+}
+function go(view) {
+  STATE.view = view;
+  markNav();
+  var host = document.getElementById('view');
+  host.innerHTML = '<div class="empty"><span class="spinner"></span> กำลังโหลด…</div>';
+  window.scrollTo(0, 0);
+  var fn = ({
+    dashboard: viewDashboard, cameras: viewCameras, inspect: viewInspections,
+    maintenance: viewMaintenance, map: viewMap, export: viewExport, settings: viewSettings,
+  })[view] || viewDashboard;
+  Promise.resolve().then(function () { return fn(host); }).catch(function (ex) {
+    host.innerHTML = '<div class="empty">โหลดไม่สำเร็จ: ' + esc(ex.message || ex) + '</div>';
+  });
+}
+
+/* ============================================================
+ * VIEW: Dashboard
+ * ========================================================== */
+function viewDashboard(host) {
+  return api('dashboard.get').then(function (d) {
+    STATE.dashboard = d;
+    var k = d.kpi;
+    host.innerHTML = '';
+
+    host.appendChild(el('div', { class: 'grid kpi' }, [
+      kpiCard(k.total, 'กล้องทั้งหมด', 'accent'),
+      kpiCard(k.usable, 'ใช้งานได้', 'ok'),
+      kpiCard(k.not_ready, 'ไม่พร้อมใช้', 'bad'),
+      kpiCard(k.decommissioned, 'ยกเลิกใช้งาน', ''),
+      kpiCard(k.availability_pct + '%', 'Availability', 'accent'),
+      kpiCard(k.open_maintenance, 'งานซ่อมค้าง', 'bad'),
+    ]));
+
+    var cols = el('div', { class: 'grid cols2 mt' }, [
+      breakdownCard('แยกตามสถานะ', d.by_status, 'count'),
+      breakdownCard('แยกตามประเภทกล้อง', d.by_type, 'count'),
+    ]);
+    host.appendChild(cols);
+
+    host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'แยกตามหน่วยงาน' })]));
+    host.appendChild(unitTable(d.by_unit));
+
+    host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'งานซ่อมที่ยังไม่ปิด' })]));
+    host.appendChild(miniMaintList(d.open_maintenance_list));
+
+    // ทางลัด export/settings (เข้าถึงบนมือถือ)
+    var shortcuts = el('div', { class: 'chip-row mt' }, [
+      el('button', { class: 'btn sm', onclick: function () { go('export'); } }, ['📤 ส่งออกข้อมูล']),
+    ]);
+    if (STATE.role === 'admin') shortcuts.appendChild(el('button', { class: 'btn sm', onclick: function () { go('settings'); } }, ['⚙️ ตั้งค่า']));
+    host.appendChild(shortcuts);
+
+    host.appendChild(el('p', { class: 'muted center mt', text: 'ข้อมูล ณ ' + fmtDateTime(d.generated_at) }));
+  });
+}
+function kpiCard(num, lbl, cls) {
+  return el('div', { class: 'card ' + (cls || '') }, [
+    el('div', { class: 'num', text: String(num) }),
+    el('div', { class: 'lbl', text: lbl }),
+  ]);
+}
+function breakdownCard(title, arr, key) {
+  var max = arr.reduce(function (m, x) { return Math.max(m, x[key]); }, 0) || 1;
+  var rows = arr.map(function (x) {
+    return el('div', { style: 'margin:8px 0' }, [
+      el('div', { style: 'display:flex;justify-content:space-between;font-size:.92rem' }, [
+        el('span', { text: x.label }), el('strong', { text: String(x[key]) }),
+      ]),
+      el('div', { class: 'bar' }, [el('i', { style: 'width:' + Math.round(x[key] / max * 100) + '%' })]),
+    ]);
+  });
+  return el('div', { class: 'card' }, [el('h3', { text: title })].concat(rows));
+}
+function unitTable(arr) {
+  var wrap = el('div', { class: 'table-wrap' });
+  var t = el('table', { class: 'data' });
+  t.innerHTML = '<thead><tr><th>หน่วยงาน</th><th>ทั้งหมด</th><th>ใช้ได้</th><th>พร้อมใช้ %</th></tr></thead>';
+  var tb = el('tbody');
+  arr.forEach(function (u) {
+    var pct = u.total ? Math.round(u.usable / u.total * 100) : 0;
+    var tr = el('tr', { onclick: function () { go('cameras'); setTimeout(function () { setCameraFilter('unit', u.unit); }, 60); } });
+    tr.innerHTML = '<td>' + esc(u.unit) + '</td><td>' + u.total + '</td><td>' + u.usable + '</td><td>' + pct + '%</td>';
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb); wrap.appendChild(t); return wrap;
+}
+function miniMaintList(arr) {
+  if (!arr || !arr.length) return el('div', { class: 'empty', text: 'ไม่มีงานซ่อมค้าง 🎉' });
+  var list = el('div', { class: 'list' });
+  arr.forEach(function (m) {
+    list.appendChild(el('div', { class: 'row-card', onclick: function () { openMaintenanceDetail(m.maintenance_id); } }, [
+      el('div', { class: 'r1', html: '<span class="id">' + esc(m.maintenance_id) + '</span> ' + repairBadge(m.repair_status) }),
+      el('div', { class: 'sub', text: m.camera_id + ' · ' + (m.problem || '—') + ' · แจ้ง ' + fmtDate(m.report_date) }),
+    ]));
+  });
+  return list;
+}
+
+/* ============================================================
+ * VIEW: Cameras
+ * ========================================================== */
+var CAM_FILTER = { q: '', unit: '', location: '', camera_type: '', status: '' };
+function setCameraFilter(k, v) {
+  CAM_FILTER[k] = v;
+  var sel = document.querySelector('[data-filter="' + k + '"]');
+  if (sel) sel.value = v;
+  reloadCameras();
+}
+function viewCameras(host) {
+  host.innerHTML = '';
+  var head = el('div', { class: 'section-head' }, [el('h2', { text: 'ทะเบียนกล้อง' })]);
+  if (STATE.role === 'admin') head.appendChild(el('button', { class: 'btn primary sm', onclick: function () { openCameraForm(null); } }, ['+ เพิ่มกล้อง']));
+  host.appendChild(head);
+
+  var f = el('div', { class: 'filters' });
+  f.appendChild(el('input', { type: 'search', placeholder: 'ค้นหา รหัส/สถานที่/หมายเหตุ', 'data-filter': 'q', value: CAM_FILTER.q, oninput: debounce(function (e) { CAM_FILTER.q = e.target.value; reloadCameras(); }, 300) }));
+  f.appendChild(filterSelect('unit', 'ทุกหน่วยงาน'));
+  f.appendChild(filterSelect('location', 'ทุกสถานที่'));
+  f.appendChild(filterSelect('camera_type', 'ทุกประเภท'));
+  f.appendChild(filterSelect('status', 'ทุกสถานะ'));
+  host.appendChild(f);
+
+  host.appendChild(el('div', { id: 'camResult' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
+  return reloadCameras();
+}
+function filterSelect(key, allLabel) {
+  var listName = key;
+  var s = el('select', { 'data-filter': key, onchange: function (e) { CAM_FILTER[key] = e.target.value; reloadCameras(); } });
+  s.appendChild(el('option', { value: '', text: allLabel }));
+  optionsFor(listName).forEach(function (o) {
+    var op = el('option', { value: o.value, text: o.label });
+    if (CAM_FILTER[key] === o.value) op.selected = true;
+    s.appendChild(op);
+  });
+  return s;
+}
+function reloadCameras() {
+  var box = document.getElementById('camResult');
+  if (!box) return Promise.resolve();
+  return api('cameras.list', { filters: CAM_FILTER }).then(function (rows) {
+    STATE.cameras = rows;
+    box.innerHTML = '';
+    box.appendChild(el('p', { class: 'muted', text: 'พบ ' + rows.length + ' รายการ' }));
+    if (!rows.length) { box.appendChild(el('div', { class: 'empty', text: 'ไม่พบข้อมูล' })); return; }
+
+    // มือถือ: การ์ด
+    var mob = el('div', { class: 'list only-mobile' });
+    rows.forEach(function (c) {
+      mob.appendChild(el('div', { class: 'row-card', onclick: function () { openCameraDetail(c.camera_id); } }, [
+        el('div', { class: 'r1', html: '<span class="id">' + esc(c.camera_id) + '</span> ' + statusBadge(c.status) }),
+        el('div', { class: 'sub', text: c.location + ' · ' + labelOf('camera_type', c.camera_type) }),
+        el('div', { class: 'sub', text: c.unit }),
+      ]));
+    });
+    box.appendChild(mob);
+
+    // เดสก์ท็อป: ตาราง
+    var wrap = el('div', { class: 'table-wrap only-desktop' });
+    var t = el('table', { class: 'data' });
+    t.innerHTML = '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
+    var tb = el('tbody');
+    rows.forEach(function (c) {
+      var tr = el('tr', { onclick: function () { openCameraDetail(c.camera_id); } });
+      tr.innerHTML = '<td><strong>' + esc(c.camera_id) + '</strong></td><td>' + esc(c.unit) + '</td><td>' + esc(c.location) +
+        '</td><td>' + esc(labelOf('camera_type', c.camera_type)) + '</td><td>' + statusBadge(c.status) +
+        '</td><td class="muted">' + (c.latitude != null ? c.latitude + ', ' + c.longitude : '—') + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
+  });
+}
+
+function openCameraDetail(id) {
+  var body = el('div', {}, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]);
+  openSheet('กล้อง ' + id, body);
+  api('cameras.get', { camera_id: id }).then(function (d) {
+    var c = d.camera;
+    body.innerHTML = '';
+    var dl = el('dl', { class: 'kv' });
+    [['สถานะ', labelOf('status', c.status)], ['หน่วยงาน', c.unit], ['สถานที่ติดตั้ง', c.location],
+     ['ประเภทกล้อง', labelOf('camera_type', c.camera_type)],
+     ['พิกัด GPS', c.latitude != null ? (c.latitude + ', ' + c.longitude) : '—'],
+     ['หมายเหตุ', c.note || '—'], ['แก้ไขล่าสุด', fmtDateTime(c.updated_at) + ' (' + c.updated_by + ')']]
+      .forEach(function (p) { dl.appendChild(el('dt', { text: p[0] })); dl.appendChild(el('dd', { html: p[0] === 'สถานะ' ? statusBadge(c.status) : esc(p[1]) })); });
+    body.appendChild(dl);
+
+    var acts = el('div', { class: 'chip-row mt' }, [
+      el('button', { class: 'btn sm', onclick: function () { closeSheet(); openInspectForm(c.camera_id); } }, ['📝 บันทึกตรวจ']),
+      el('button', { class: 'btn sm', onclick: function () { closeSheet(); openMaintForm(c.camera_id); } }, ['🔧 แจ้งซ่อม']),
+    ]);
+    if (STATE.role === 'admin') {
+      acts.appendChild(el('button', { class: 'btn sm', onclick: function () { openCameraForm(c); } }, ['✏️ แก้ไข']));
+      acts.appendChild(el('button', { class: 'btn sm danger', onclick: function () { confirmDeleteCamera(c.camera_id); } }, ['🗑️ ลบ']));
+    }
+    body.appendChild(acts);
+
+    body.appendChild(el('h3', { class: 'mt', text: 'ประวัติการตรวจ (' + d.inspections.length + ')' }));
+    body.appendChild(historyList(d.inspections, 'inspection'));
+    body.appendChild(el('h3', { class: 'mt', text: 'ประวัติการซ่อม (' + d.maintenance.length + ')' }));
+    body.appendChild(historyList(d.maintenance, 'maintenance'));
+  }).catch(function (ex) { body.innerHTML = '<div class="empty">' + esc(ex.message) + '</div>'; });
+}
+function historyList(arr, kind) {
+  if (!arr.length) return el('div', { class: 'empty', text: 'ยังไม่มีข้อมูล' });
+  var list = el('div', { class: 'list' });
+  arr.forEach(function (r) {
+    var isIns = kind === 'inspection';
+    var id = isIns ? r.inspection_id : r.maintenance_id;
+    var date = isIns ? r.inspect_date : r.report_date;
+    var badge = isIns ? (r.result_status ? statusBadge(r.result_status) : '') : repairBadge(r.repair_status);
+    list.appendChild(el('div', { class: 'row-card', onclick: function () { isIns ? openInspectionDetail(r) : openMaintenanceDetail(id); } }, [
+      el('div', { class: 'r1', html: '<span class="id">' + esc(id) + '</span> ' + badge }),
+      el('div', { class: 'sub', text: fmtDate(date) + ' · ' + (r.problem || r.action || '—') + (r.photo_urls && r.photo_urls.length ? ' · 📷' + r.photo_urls.length : '') }),
+    ]));
+  });
+  return list;
+}
+function confirmDeleteCamera(id) {
+  var body = el('div', {}, [
+    el('p', { text: 'ยืนยันลบกล้อง ' + id + ' ? (ลบไม่ได้ถ้ามีประวัติตรวจ/ซ่อม)' }),
+    el('div', { class: 'chip-row mt' }, [
+      el('button', { class: 'btn danger', onclick: function (e) {
+        busy(e.target, true);
+        api('cameras.delete', { camera_id: id }).then(function () { toast('ลบแล้ว'); closeSheet(); reloadCameras(); })
+          .catch(function (ex) { busy(e.target, false, 'ลบ'); toast(ex.message); });
+      } }, ['ลบ']),
+      el('button', { class: 'btn ghost', onclick: closeSheet }, ['ยกเลิก']),
+    ]),
+  ]);
+  openSheet('ลบกล้อง', body);
+}
+
+/* ---------- ฟอร์มกล้อง (admin) ---------- */
+function openCameraForm(cam) {
+  var isEdit = !!cam;
+  var f = el('div', {});
+  function fld(label, node, req) {
+    var w = el('div', { class: 'field' }, [el('label', { html: esc(label) + (req ? ' <span class="req">*</span>' : '') }), node]);
+    return w;
+  }
+  var selUnit = selectFromLookup('unit', cam ? cam.unit : '');
+  var selLoc = selectFromLookup('location', cam ? cam.location : '');
+  var selType = selectFromLookup('camera_type', cam ? cam.camera_type : '');
+  var selStatus = selectFromLookup('status', cam ? cam.status : 'USABLE');
+  var lat = el('input', { type: 'number', step: 'any', placeholder: '13.912345', value: cam && cam.latitude != null ? cam.latitude : '' });
+  var lng = el('input', { type: 'number', step: 'any', placeholder: '100.601234', value: cam && cam.longitude != null ? cam.longitude : '' });
+  var note = el('textarea', { placeholder: 'หมายเหตุ' }, [cam ? cam.note : '']);
+
+  f.appendChild(fld('หน่วยงาน', selUnit, true));
+  f.appendChild(fld('สถานที่ติดตั้ง', selLoc, true));
+  f.appendChild(fld('ประเภทกล้อง', selType, true));
+  f.appendChild(fld('สถานภาพใช้งาน', selStatus, true));
+  f.appendChild(el('div', { class: 'field-row' }, [fld('Latitude', lat), fld('Longitude', lng)]));
+  f.appendChild(fld('หมายเหตุ', note));
+
+  var save = el('button', { class: 'btn primary block mt', text: isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง', onclick: function (e) {
+    var data = {
+      unit: selUnit.value, location: selLoc.value, camera_type: selType.value, status: selStatus.value,
+      latitude: lat.value, longitude: lng.value, note: note.value,
+    };
+    busy(e.target, true);
+    var p = isEdit ? api('cameras.update', { camera_id: cam.camera_id, data: data }) : api('cameras.create', { data: data });
+    p.then(function () { toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มกล้องแล้ว'); closeSheet(); reloadCameras(); if (STATE.view === 'map') go('map'); })
+      .catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง'); alert(ex.message); });
+  } });
+  f.appendChild(save);
+  openSheet(isEdit ? ('แก้ไข ' + cam.camera_id) : 'เพิ่มกล้องใหม่', f, { sticky: true });
+}
+function selectFromLookup(list, val) {
+  var s = el('select', {});
+  s.appendChild(el('option', { value: '', text: '— เลือก —' }));
+  optionsFor(list).forEach(function (o) {
+    var op = el('option', { value: o.value, text: o.label });
+    if (o.value === val) op.selected = true;
+    s.appendChild(op);
+  });
+  return s;
+}
+
+/* ============================================================
+ * VIEW: Inspections
+ * ========================================================== */
+function viewInspections(host) {
+  host.innerHTML = '';
+  var head = el('div', { class: 'section-head' }, [
+    el('h2', { text: 'บันทึกการตรวจ' }),
+    el('button', { class: 'btn primary sm', onclick: function () { openInspectForm(null); } }, ['+ บันทึกตรวจ']),
+  ]);
+  host.appendChild(head);
+  host.appendChild(el('div', { id: 'insResult' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
+  return api('inspections.list', { filters: { limit: 200 } }).then(function (rows) {
+    var box = document.getElementById('insResult'); box.innerHTML = '';
+    if (!rows.length) { box.appendChild(el('div', { class: 'empty', text: 'ยังไม่มีบันทึกการตรวจ' })); return; }
+    var list = el('div', { class: 'list' });
+    rows.forEach(function (r) {
+      list.appendChild(el('div', { class: 'row-card', onclick: function () { openInspectionDetail(r); } }, [
+        el('div', { class: 'r1', html: '<span class="id">' + esc(r.inspection_id) + '</span> ' + (r.result_status ? statusBadge(r.result_status) : '') }),
+        el('div', { class: 'sub', text: r.camera_id + ' · ' + fmtDate(r.inspect_date) + ' · ' + (r.problem || '—') + (r.photo_urls.length ? ' · 📷' + r.photo_urls.length : '') }),
+      ]));
+    });
+    box.appendChild(list);
+  });
+}
+function openInspectionDetail(r) {
+  var body = el('div', {});
+  var dl = el('dl', { class: 'kv' });
+  [['กล้อง', r.camera_id], ['วันที่ตรวจ', fmtDate(r.inspect_date)], ['ผลตรวจ', labelOf('status', r.result_status)],
+   ['ปัญหา', r.problem || '—'], ['การดำเนินการ', r.action || '—'], ['ผู้ตรวจ', r.technician || '—'],
+   ['หมายเหตุ', r.note || '—'], ['บันทึกเมื่อ', fmtDateTime(r.created_at) + ' (' + r.created_by + ')']]
+    .forEach(function (p) { dl.appendChild(el('dt', { text: p[0] })); dl.appendChild(el('dd', { text: p[1] })); });
+  body.appendChild(dl);
+  if (r.photo_urls.length) body.appendChild(photoStrip(r.photo_urls));
+  openSheet('การตรวจ ' + r.inspection_id, body);
+}
+function openInspectForm(cameraId) {
+  var f = el('div', {});
+  var camPick = cameraPicker(cameraId);
+  var date = el('input', { type: 'date', value: todayStr() });
+  var res = selectFromLookup('status', 'USABLE');
+  var problem = el('textarea', { placeholder: 'ปัญหาที่พบ (ถ้ามี)' });
+  var action = el('textarea', { placeholder: 'การดำเนินการ' });
+  var tech = el('input', { type: 'text', placeholder: 'ชื่อผู้ตรวจ' });
+  var note = el('input', { type: 'text', placeholder: 'หมายเหตุ' });
+  var photos = photoField();
+
+  f.appendChild(fieldWrap('กล้อง', camPick, true));
+  f.appendChild(fieldWrap('วันที่ตรวจ', date, true));
+  f.appendChild(fieldWrap('ผลตรวจ (สถานะกล้องหลังตรวจ)', res, true));
+  f.appendChild(fieldWrap('ปัญหาที่พบ', problem));
+  f.appendChild(fieldWrap('การดำเนินการ', action));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('ผู้ตรวจ', tech), fieldWrap('หมายเหตุ', note)]));
+  f.appendChild(fieldWrap('รูปถ่าย (ได้หลายรูป)', photos.node));
+  f.appendChild(el('p', { class: 'muted', text: 'บันทึกแล้วระบบจะปรับสถานะกล้องให้ตามผลตรวจ' }));
+
+  var save = el('button', { class: 'btn primary block mt', text: 'บันทึกการตรวจ', onclick: function (e) {
+    if (!camPick.value) return alert('กรุณาเลือกกล้อง');
+    busy(e.target, true);
+    photos.collect().then(function (imgs) {
+      return api('inspections.create', { data: {
+        camera_id: camPick.value, inspect_date: date.value, result_status: res.value,
+        problem: problem.value, action: action.value, technician: tech.value, note: note.value, photos: imgs,
+      } });
+    }).then(function () { toast('บันทึกการตรวจแล้ว'); closeSheet(); if (STATE.view === 'inspect') go('inspect'); else if (STATE.view === 'dashboard') go('dashboard'); })
+      .catch(function (ex) { busy(e.target, false, 'บันทึกการตรวจ'); alert(ex.message); });
+  } });
+  f.appendChild(save);
+  openSheet('บันทึกการตรวจ', f, { sticky: true });
+}
+
+/* ============================================================
+ * VIEW: Maintenance
+ * ========================================================== */
+var MNT_OPEN_ONLY = false;
+function viewMaintenance(host) {
+  host.innerHTML = '';
+  var head = el('div', { class: 'section-head' }, [
+    el('h2', { text: 'งานซ่อม' }),
+    el('button', { class: 'btn primary sm', onclick: function () { openMaintForm(null); } }, ['+ แจ้งซ่อม']),
+  ]);
+  host.appendChild(head);
+  var toggle = el('label', { class: 'chip', style: 'cursor:pointer' }, []);
+  var cb = el('input', { type: 'checkbox' });
+  cb.checked = MNT_OPEN_ONLY;
+  cb.addEventListener('change', function () { MNT_OPEN_ONLY = cb.checked; go('maintenance'); });
+  toggle.appendChild(cb); toggle.appendChild(document.createTextNode(' เฉพาะงานที่ยังไม่ปิด'));
+  host.appendChild(el('div', { class: 'chip-row', style: 'margin-bottom:12px' }, [toggle]));
+
+  host.appendChild(el('div', { id: 'mntResult' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
+  return api('maintenance.list', { filters: { limit: 300, open: MNT_OPEN_ONLY } }).then(function (rows) {
+    var box = document.getElementById('mntResult'); box.innerHTML = '';
+    if (!rows.length) { box.appendChild(el('div', { class: 'empty', text: 'ไม่มีข้อมูล' })); return; }
+    var list = el('div', { class: 'list' });
+    rows.forEach(function (m) {
+      list.appendChild(el('div', { class: 'row-card', onclick: function () { openMaintenanceDetail(m.maintenance_id, m); } }, [
+        el('div', { class: 'r1', html: '<span class="id">' + esc(m.maintenance_id) + '</span> ' + repairBadge(m.repair_status) }),
+        el('div', { class: 'sub', text: m.camera_id + ' · แจ้ง ' + fmtDate(m.report_date) + ' · ' + (m.problem || '—') + (m.photo_urls.length ? ' · 📷' + m.photo_urls.length : '') }),
+      ]));
+    });
+    box.appendChild(list);
+  });
+}
+function openMaintenanceDetail(id, cached) {
+  var body = el('div', {}, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]);
+  openSheet('งานซ่อม ' + id, body);
+  var p = cached ? Promise.resolve([cached]) : api('maintenance.list', { filters: {} }).then(function (rows) { return rows.filter(function (x) { return x.maintenance_id === id; }); });
+  p.then(function (arr) {
+    var m = arr[0];
+    if (!m) { body.innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
+    body.innerHTML = '';
+    var dl = el('dl', { class: 'kv' });
+    [['กล้อง', m.camera_id], ['สถานะงาน', labelOf('repair_status', m.repair_status)],
+     ['วันที่แจ้ง', fmtDate(m.report_date)], ['เริ่มซ่อม', fmtDate(m.start_date)], ['เสร็จ', fmtDate(m.end_date)],
+     ['อาการเสีย', m.problem || '—'], ['การซ่อม', m.action || '—'], ['อะไหล่', m.parts_used || '—'],
+     ['สถานะกล้องหลังซ่อม', m.result_status ? labelOf('status', m.result_status) : '—'],
+     ['ช่าง', m.technician || '—'], ['ค่าใช้จ่าย', m.cost != null ? (Number(m.cost).toLocaleString('th-TH') + ' บาท') : '—'],
+     ['หมายเหตุ', m.note || '—'], ['บันทึกเมื่อ', fmtDateTime(m.created_at) + ' (' + m.created_by + ')']]
+      .forEach(function (pr) { dl.appendChild(el('dt', { text: pr[0] })); dl.appendChild(el('dd', { text: pr[1] })); });
+    body.appendChild(dl);
+    if (m.photo_urls.length) body.appendChild(photoStrip(m.photo_urls));
+    if (STATE.role === 'admin') {
+      body.appendChild(el('button', { class: 'btn primary block mt', text: '✏️ แก้ไข / ปิดงาน', onclick: function () { openMaintEditForm(m); } }));
+    }
+  }).catch(function (ex) { body.innerHTML = '<div class="empty">' + esc(ex.message) + '</div>'; });
+}
+function openMaintForm(cameraId) {
+  var f = el('div', {});
+  var camPick = cameraPicker(cameraId);
+  var rdate = el('input', { type: 'date', value: todayStr() });
+  var problem = el('textarea', { placeholder: 'อาการเสีย' });
+  var rstatus = selectFromLookup('repair_status', 'PENDING');
+  var tech = el('input', { type: 'text', placeholder: 'ช่างผู้ซ่อม' });
+  var photos = photoField();
+  f.appendChild(fieldWrap('กล้อง', camPick, true));
+  f.appendChild(fieldWrap('วันที่แจ้งซ่อม', rdate, true));
+  f.appendChild(fieldWrap('อาการเสีย', problem));
+  f.appendChild(fieldWrap('สถานะงานซ่อม', rstatus, true));
+  f.appendChild(fieldWrap('ช่างผู้ซ่อม', tech));
+  f.appendChild(fieldWrap('รูปถ่าย (ได้หลายรูป)', photos.node));
+  f.appendChild(el('p', { class: 'muted', text: 'ถ้ากล้องยังขึ้นว่า “ใช้งานได้” ระบบจะปรับเป็น “อยู่ระหว่างซ่อม” ให้อัตโนมัติ' }));
+  var save = el('button', { class: 'btn primary block mt', text: 'บันทึกแจ้งซ่อม', onclick: function (e) {
+    if (!camPick.value) return alert('กรุณาเลือกกล้อง');
+    busy(e.target, true);
+    photos.collect().then(function (imgs) {
+      return api('maintenance.create', { data: {
+        camera_id: camPick.value, report_date: rdate.value, problem: problem.value,
+        repair_status: rstatus.value, technician: tech.value, photos: imgs,
+      } });
+    }).then(function () { toast('บันทึกแจ้งซ่อมแล้ว'); closeSheet(); if (STATE.view === 'maintenance') go('maintenance'); else go(STATE.view); })
+      .catch(function (ex) { busy(e.target, false, 'บันทึกแจ้งซ่อม'); alert(ex.message); });
+  } });
+  f.appendChild(save);
+  openSheet('แจ้งซ่อม', f, { sticky: true });
+}
+function openMaintEditForm(m) {
+  var f = el('div', {});
+  var action = el('textarea', { placeholder: 'รายละเอียดการซ่อม' }, [m.action || '']);
+  var parts = el('input', { type: 'text', placeholder: 'อะไหล่ที่ใช้', value: m.parts_used || '' });
+  var sdate = el('input', { type: 'date', value: m.start_date || '' });
+  var edate = el('input', { type: 'date', value: m.end_date || '' });
+  var rstatus = selectFromLookup('repair_status', m.repair_status);
+  var result = selectFromLookup('status', m.result_status || '');
+  var cost = el('input', { type: 'number', step: 'any', placeholder: 'บาท', value: m.cost != null ? m.cost : '' });
+  var tech = el('input', { type: 'text', value: m.technician || '' });
+  var note = el('input', { type: 'text', value: m.note || '' });
+  f.appendChild(fieldWrap('การซ่อม', action));
+  f.appendChild(fieldWrap('อะไหล่ที่ใช้', parts));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('วันเริ่มซ่อม', sdate), fieldWrap('วันเสร็จ', edate)]));
+  f.appendChild(fieldWrap('สถานะงานซ่อม', rstatus, true));
+  f.appendChild(fieldWrap('สถานะกล้องหลังซ่อม (ใช้เมื่อปิดงาน)', result));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('ค่าใช้จ่าย (บาท)', cost), fieldWrap('ช่าง', tech)]));
+  f.appendChild(fieldWrap('หมายเหตุ', note));
+  var save = el('button', { class: 'btn primary block mt', text: 'บันทึก', onclick: function (e) {
+    busy(e.target, true);
+    api('maintenance.update', { maintenance_id: m.maintenance_id, data: {
+      action: action.value, parts_used: parts.value, start_date: sdate.value, end_date: edate.value,
+      repair_status: rstatus.value, result_status: result.value, cost: cost.value, technician: tech.value, note: note.value,
+    } }).then(function () { toast('บันทึกแล้ว'); closeSheet(); go('maintenance'); })
+      .catch(function (ex) { busy(e.target, false, 'บันทึก'); alert(ex.message); });
+  } });
+  f.appendChild(save);
+  openSheet('แก้ไขงานซ่อม ' + m.maintenance_id, f, { sticky: true });
+}
+
+/* ============================================================
+ * VIEW: Map
+ * ========================================================== */
+var _map = null;
+function viewMap(host) {
+  host.innerHTML = '';
+  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'แผนที่จุดติดตั้ง' })]));
+  host.appendChild(el('div', { id: 'map' }));
+  var legend = el('div', { class: 'chip-row mt' }, [
+    el('span', { class: 'chip', html: '🟢 ใช้งานได้' }), el('span', { class: 'chip', html: '🔴 ใช้งานไม่ได้' }),
+    el('span', { class: 'chip', html: '🟠 ระหว่างซ่อม' }), el('span', { class: 'chip', html: '⚪ อื่น ๆ' }),
+  ]);
+  host.appendChild(legend);
+  host.appendChild(el('p', { class: 'muted mt', id: 'mapNote' }));
+
+  return api('cameras.list', { filters: { hasGeo: true } }).then(function (rows) {
+    var note = document.getElementById('mapNote');
+    setTimeout(function () {
+      if (_map) { _map.remove(); _map = null; }
+      _map = L.map('map');
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '© OpenStreetMap',
+      }).addTo(_map);
+      if (!rows.length) {
+        _map.setView([13.7563, 100.5018], 6);
+        note.textContent = 'ยังไม่มีกล้องที่กรอกพิกัด GPS — เพิ่มพิกัดในหน้ากล้องเพื่อให้แสดงบนแผนที่';
+        return;
+      }
+      var group = [];
+      rows.forEach(function (c) {
+        var color = c.status === 'USABLE' ? '#16a34a' : c.status === 'UNUSABLE' ? '#dc2626' : c.status === 'REPAIRING' ? '#d97706' : '#94a3b8';
+        var mk = L.circleMarker([c.latitude, c.longitude], { radius: 8, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).addTo(_map);
+        mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)));
+        mk.on('click', function () {});
+        group.push([c.latitude, c.longitude]);
+      });
+      _map.fitBounds(group, { padding: [40, 40], maxZoom: 17 });
+      note.textContent = 'แสดง ' + rows.length + ' กล้องที่มีพิกัด';
+    }, 50);
+  });
+}
+
+/* ============================================================
+ * VIEW: Export
+ * ========================================================== */
+function viewExport(host) {
+  host.innerHTML = '';
+  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'ส่งออกข้อมูล' })]));
+  host.appendChild(el('p', { class: 'muted', text: 'ดาวน์โหลดเป็นไฟล์ CSV (เปิดใน Excel / Google Sheets ได้ รองรับภาษาไทย)' }));
+  var box = el('div', { class: 'list' });
+  [['cameras', '📹 ทะเบียนกล้อง'], ['inspections', '📝 บันทึกการตรวจ'], ['maintenance', '🔧 บันทึกการซ่อม']].forEach(function (p) {
+    box.appendChild(el('button', { class: 'btn block', onclick: function (e) {
+      busy(e.target, true);
+      api('export.csv', { entity: p[0] }).then(function (d) {
+        downloadText(d.filename, d.csv, 'text/csv;charset=utf-8');
+        busy(e.target, false, p[1]); toast('ดาวน์โหลด ' + d.filename);
+      }).catch(function (ex) { busy(e.target, false, p[1]); alert(ex.message); });
+    }, text: p[1] }));
+  });
+  host.appendChild(box);
+  host.appendChild(el('button', { class: 'btn ghost block mt', text: '🖨️ พิมพ์ / บันทึก PDF หน้าภาพรวม', onclick: function () { go('dashboard'); setTimeout(function () { window.print(); }, 400); } }));
+}
+function downloadText(filename, text, mime) {
+  var blob = new Blob([text], { type: mime || 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = el('a', { href: url, download: filename });
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+
+/* ============================================================
+ * VIEW: Settings (admin) — เพิ่มหน่วยงาน / สถานที่
+ * ========================================================== */
+function viewSettings(host) {
+  host.innerHTML = '';
+  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'ตั้งค่า' })]));
+  ['unit', 'location'].forEach(function (list) {
+    var card = el('div', { class: 'card', style: 'margin-bottom:14px' });
+    card.appendChild(el('h3', { text: list === 'unit' ? 'หน่วยงาน' : 'สถานที่ติดตั้ง' }));
+    var chips = el('div', { class: 'chip-row', style: 'margin-bottom:10px' });
+    optionsFor(list).forEach(function (o) { chips.appendChild(el('span', { class: 'chip', text: o.label })); });
+    card.appendChild(chips);
+    var input = el('input', { type: 'text', placeholder: 'เพิ่มรายการใหม่', style: 'min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;width:100%;background:var(--surface-2)' });
+    var btn = el('button', { class: 'btn primary block mt', text: 'เพิ่ม', onclick: function (e) {
+      if (!input.value.trim()) return;
+      busy(e.target, true);
+      api('lookups.add', { list_name: list, label: input.value.trim() }).then(function () {
+        return api('lookups.get');
+      }).then(function (lk) {
+        STATE.lookups = lk;
+        STATE.labels = {};
+        Object.keys(lk).forEach(function (L2) { STATE.labels[L2] = {}; lk[L2].forEach(function (o) { STATE.labels[L2][o.value] = o.label; }); });
+        toast('เพิ่มแล้ว'); go('settings');
+      }).catch(function (ex) { busy(e.target, false, 'เพิ่ม'); alert(ex.message); });
+    } });
+    card.appendChild(input); card.appendChild(btn);
+    host.appendChild(card);
+  });
+  host.appendChild(el('p', { class: 'muted', text: 'การแก้ชื่อ/ลบรายการเดิม ทำได้ในแท็บ Lookups ของ Google Sheet โดยตรง (ตั้ง active = FALSE เพื่อซ่อน)' }));
+}
+
+/* ============================================================
+ * ส่วนประกอบร่วม: cameraPicker, photoField, fieldWrap
+ * ========================================================== */
+function fieldWrap(label, node, req) {
+  return el('div', { class: 'field' }, [
+    el('label', { html: esc(label) + (req ? ' <span class="req">*</span>' : '') }), node,
+  ]);
+}
+function cameraPicker(preset) {
+  var s = el('select', {});
+  s.appendChild(el('option', { value: '', text: '— เลือกกล้อง —' }));
+  var src = STATE.cameras.length ? Promise.resolve(STATE.cameras) : api('cameras.list', { filters: {} });
+  src.then(function (rows) {
+    STATE.cameras = rows;
+    rows.forEach(function (c) {
+      var op = el('option', { value: c.camera_id, text: c.camera_id + ' · ' + c.location + ' (' + labelOf('camera_type', c.camera_type) + ')' });
+      if (c.camera_id === preset) op.selected = true;
+      s.appendChild(op);
+    });
+  });
+  return s;
+}
+function photoField() {
+  var wrap = el('div', {});
+  var input = el('input', { type: 'file', accept: 'image/*', multiple: true });
+  var preview = el('div', { class: 'photos mt' });
+  var files = [];
+  input.addEventListener('change', function () {
+    for (var i = 0; i < input.files.length; i++) files.push(input.files[i]);
+    input.value = '';
+    renderPreview();
+  });
+  function renderPreview() {
+    preview.innerHTML = '';
+    files.forEach(function (f, idx) {
+      var url = URL.createObjectURL(f);
+      var t = el('div', { class: 'thumb', style: 'position:relative' }, [
+        el('img', { src: url }),
+        el('button', { type: 'button', class: 'x', style: 'position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;border-radius:50%;width:22px;height:22px;font-size:14px;line-height:1', text: '×', onclick: function () { files.splice(idx, 1); renderPreview(); } }),
+      ]);
+      preview.appendChild(t);
+    });
+  }
+  wrap.appendChild(input);
+  wrap.appendChild(preview);
+  return {
+    node: wrap,
+    collect: function () {
+      return Promise.all(files.slice(0, 8).map(function (f) { return resizeImage(f, 1600, 0.82); }));
+    },
+  };
+}
+/** ย่อรูปฝั่ง browser → { name, mimeType, dataBase64 } */
+function resizeImage(file, maxDim, quality) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function () {
+      var w = img.width, h = img.height;
+      var scale = Math.min(1, maxDim / Math.max(w, h));
+      var cw = Math.round(w * scale), ch = Math.round(h * scale);
+      var cv = el('canvas'); cv.width = cw; cv.height = ch;
+      cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      var dataUrl = cv.toDataURL('image/jpeg', quality || 0.82);
+      resolve({ name: file.name || 'photo.jpg', mimeType: 'image/jpeg', dataBase64: dataUrl.split(',')[1] });
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('อ่านรูปไม่ได้: ' + (file.name || ''))); };
+    img.src = url;
+  });
+}
+function photoStrip(urls) {
+  var box = el('div', { class: 'photos mt' });
+  urls.forEach(function (u) {
+    var id = (String(u).match(/\/d\/([^/]+)/) || [])[1];
+    var thumb = id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w200' : u;
+    box.appendChild(el('a', { href: u, target: '_blank', rel: 'noopener' }, [el('img', { src: thumb, loading: 'lazy' })]));
+  });
+  return box;
+}
+
+/* ---------- utils ---------- */
+function debounce(fn, ms) {
+  var t; return function () { var a = arguments, c = this; clearTimeout(t); t = setTimeout(function () { fn.apply(c, a); }, ms); };
+}
+
+/* ---------- boot ---------- */
+initLogin();
+</script>
+</body>
+</html>
