@@ -212,7 +212,7 @@
   .field-row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 
   .filters { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
-  @media (min-width: 900px) { .filters { grid-template-columns: 2fr repeat(4, 1fr); } }
+  @media (min-width: 900px) { .filters { grid-template-columns: 1.6fr repeat(5, 1fr); } }
   .filters input, .filters select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); width: 100%; }
 
   /* ================= Modal / Sheet ================= */
@@ -336,7 +336,7 @@
 'use strict';
 
 /* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
-var API_URL = 'https://script.google.com/macros/s/AKfycbzsKqwkIJ0c__EUTy4KtI2iVr114pMGRv6745GnJil8yQX9yNuB37L7mQZjUj6cSeR7/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbyNdZxwn3vZLooPysZ2N9xfId6rU9Xv9eKB2A8lL-dngUc30AV_CipWSO0D91Z8mk3-/exec';
 
 /* ---------- สถานะรวม ---------- */
 var STATE = {
@@ -710,7 +710,7 @@ function miniMaintList(arr) {
 /* ============================================================
  * VIEW: Cameras
  * ========================================================== */
-var CAM_FILTER = { q: '', unit: '', location: '', camera_type: '', status: '' };
+var CAM_FILTER = { q: '', unit: '', location: '', camera_type: '', camera_subtype: '', status: '' };
 function setCameraFilter(k, v) {
   CAM_FILTER[k] = v;
   var sel = document.querySelector('[data-filter="' + k + '"]');
@@ -728,6 +728,7 @@ function viewCameras(host) {
   f.appendChild(filterSelect('unit', 'ทุกหน่วยงาน'));
   f.appendChild(filterSelect('location', 'ทุกสถานที่'));
   f.appendChild(filterSelect('camera_type', 'ทุกประเภท'));
+  f.appendChild(filterSelect('camera_subtype', 'ทุกชนิดย่อย'));
   f.appendChild(filterSelect('status', 'ทุกสถานะ'));
   host.appendChild(f);
 
@@ -769,14 +770,16 @@ function reloadCameras() {
     var wrap = el('div', { class: 'table-wrap only-desktop' });
     var t = el('table', { class: 'data fixed' });
     t.innerHTML =
-      '<colgroup><col class="col-id"><col class="col-lg"><col><col class="col-md"><col class="col-badge"><col class="col-md"></colgroup>' +
-      '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
+      '<colgroup><col class="col-id"><col class="col-md"><col><col class="col-lg"><col class="col-badge"><col class="col-lg"></colgroup>' +
+      '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท / ชนิดย่อย</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (c) {
       var tr = el('tr', { onclick: function () { openCameraDetail(c.camera_id); } });
+      var typeCell = esc(labelOf('camera_type', c.camera_type)) + (c.camera_subtype ? '<br><span class="muted" style="font-size:.86em">' + esc(c.camera_subtype) + '</span>' : '');
+      var geo = c.latitude != null ? (Math.round(c.latitude * 1e5) / 1e5 + ', ' + Math.round(c.longitude * 1e5) / 1e5) : '—';
       tr.innerHTML = '<td class="nowrap"><strong>' + esc(c.camera_id) + '</strong></td><td>' + esc(c.unit) + '</td><td>' + esc(c.location) +
-        '</td><td>' + esc(labelOf('camera_type', c.camera_type)) + '</td><td class="nowrap">' + statusBadge(c.status) +
-        '</td><td class="nowrap muted">' + (c.latitude != null ? c.latitude + ', ' + c.longitude : '—') + '</td>';
+        '</td><td>' + typeCell + '</td><td class="nowrap">' + statusBadge(c.status) +
+        '</td><td class="nowrap muted">' + geo + '</td>';
       tb.appendChild(tr);
     });
     t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
@@ -792,6 +795,7 @@ function openCameraDetail(id) {
     var dl = el('dl', { class: 'kv' });
     [['สถานะ', labelOf('status', c.status)], ['หน่วยงาน', c.unit], ['สถานที่ติดตั้ง', c.location],
      ['ประเภทกล้อง', labelOf('camera_type', c.camera_type)],
+     ['ชนิดย่อย', c.camera_subtype || '—'],
      ['พิกัด GPS', c.latitude != null ? (c.latitude + ', ' + c.longitude) : '—'],
      ['หมายเหตุ', c.note || '—'], ['แก้ไขล่าสุด', fmtDateTime(c.updated_at) + ' (' + c.updated_by + ')']]
       .forEach(function (p) { dl.appendChild(el('dt', { text: p[0] })); dl.appendChild(el('dd', { html: p[0] === 'สถานะ' ? statusBadge(c.status) : esc(p[1]) })); });
@@ -854,6 +858,7 @@ function openCameraForm(cam) {
   var selUnit = selectFromLookup('unit', cam ? cam.unit : '');
   var selLoc = selectFromLookup('location', cam ? cam.location : '');
   var selType = selectFromLookup('camera_type', cam ? cam.camera_type : '');
+  var selSub = selectFromLookup('camera_subtype', cam ? cam.camera_subtype : '');
   var selStatus = selectFromLookup('status', cam ? cam.status : 'USABLE');
   var lat = el('input', { type: 'number', step: 'any', placeholder: '13.912345', value: cam && cam.latitude != null ? cam.latitude : '' });
   var lng = el('input', { type: 'number', step: 'any', placeholder: '100.601234', value: cam && cam.longitude != null ? cam.longitude : '' });
@@ -861,14 +866,14 @@ function openCameraForm(cam) {
 
   f.appendChild(fld('หน่วยงาน', selUnit, true));
   f.appendChild(fld('สถานที่ติดตั้ง', selLoc, true));
-  f.appendChild(fld('ประเภทกล้อง', selType, true));
+  f.appendChild(el('div', { class: 'field-row' }, [fld('ประเภทกล้อง', selType, true), fld('ชนิดย่อย', selSub)]));
   f.appendChild(fld('สถานภาพใช้งาน', selStatus, true));
   f.appendChild(el('div', { class: 'field-row' }, [fld('Latitude', lat), fld('Longitude', lng)]));
   f.appendChild(fld('หมายเหตุ', note));
 
   var save = el('button', { class: 'btn primary block mt', text: isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มกล้อง', onclick: function (e) {
     var data = {
-      unit: selUnit.value, location: selLoc.value, camera_type: selType.value, status: selStatus.value,
+      unit: selUnit.value, location: selLoc.value, camera_type: selType.value, camera_subtype: selSub.value, status: selStatus.value,
       latitude: lat.value, longitude: lng.value, note: note.value,
     };
     busy(e.target, true);
@@ -1406,12 +1411,22 @@ function viewMap(host) {
         .then(function () { clearEditMarker(); })
         .catch(function (ex) { saveB.disabled = false; saveB.textContent = 'บันทึก'; alert(ex.message); });
     } }, ['บันทึก']);
+    var delB = el('button', { class: 'btn sm danger', onclick: function () {
+      var id = sel.value;
+      if (!id) { toast('เลือกกล้องก่อน'); return; }
+      if (!confirm('ลบพิกัดของ ' + id + ' ? (กล้องจะหายจากแผนที่ ข้อมูลอื่นคงเดิม)')) return;
+      delB.disabled = true; delB.textContent = '…';
+      api('cameras.update', { camera_id: id, data: { latitude: '', longitude: '' } })
+        .then(function () { toast('ลบพิกัด ' + id + ' แล้ว'); return reloadCams(); })
+        .then(function () { clearEditMarker(); })
+        .catch(function (ex) { delB.disabled = false; delB.textContent = 'ลบพิกัด'; alert(ex.message); });
+    } }, ['ลบพิกัด']);
     var cancelB = el('button', { class: 'btn sm', onclick: function () { clearEditMarker(); } }, ['ยกเลิก']);
 
     node.appendChild(el('div', { style: 'font-weight:700;margin-bottom:4px', text: 'กำหนดพิกัดให้กล้อง' }));
     node.appendChild(sel);
     node.appendChild(coordLine);
-    node.appendChild(el('div', { class: 'chip-row' }, [saveB, cancelB]));
+    node.appendChild(el('div', { class: 'chip-row' }, [saveB, delB, cancelB]));
     L.DomEvent.disableClickPropagation(node);
     L.DomEvent.disableScrollPropagation(node);
 
@@ -1426,7 +1441,7 @@ function viewMap(host) {
       if (c.latitude == null || c.longitude == null) return;
       withGeo++;
       var mk = L.circleMarker([c.latitude, c.longitude], { radius: 8, color: '#fff', weight: 2, fillColor: _statusColor(c.status), fillOpacity: 1, bubblingMouseEvents: false });
-      mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)) +
+      mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(c.camera_subtype || labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)) +
         (isAdmin ? '<br><a href="#" onclick="return false" data-editcam="1">✎ ย้ายพิกัด</a>' : ''));
       if (isAdmin) {
         mk.on('popupopen', function (ev) {
