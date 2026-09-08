@@ -225,6 +225,13 @@
   .login-card .logo { font-size: 2.4rem; }
   .login-card h1 { font-size: 1.2rem; margin-top: 6px; }
   .login-card p.hint { color: var(--text-dim); font-size: .88rem; margin: 4px 0 18px; }
+  .role-toggle { display: flex; gap: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+  .role-toggle .role-opt { flex: 1; min-height: 42px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-weight: 700; color: var(--text-dim); }
+  .role-toggle .role-opt.active { background: var(--primary); color: var(--primary-ink); }
+  .pw-field { position: relative; }
+  .pw-field input { padding-right: 68px; }
+  .pw-toggle { position: absolute; right: 6px; top: 6px; height: calc(var(--tap) - 12px); padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer; font-size: .82rem; color: var(--text-dim); }
+  .pw-toggle:hover { border-color: var(--primary); color: var(--text); }
 
   /* ================= อื่น ๆ ================= */
   .muted { color: var(--text-dim); }
@@ -251,9 +258,14 @@
     <form class="login-card" id="loginForm">
       <div class="logo">📹</div>
       <h1 id="loginTitle">ระบบฐานข้อมูล CCTV</h1>
-      <p class="hint">กรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
-      <div class="field">
-        <input type="password" id="pw" placeholder="รหัสผ่าน" autocomplete="current-password" required>
+      <p class="hint">เลือกสิทธิ์และกรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+      <div class="role-toggle" id="roleToggle">
+        <button type="button" class="role-opt active" data-role="viewer">Viewer</button>
+        <button type="button" class="role-opt" data-role="admin">Admin</button>
+      </div>
+      <div class="field pw-field">
+        <input type="password" id="pw" placeholder="รหัสผ่าน Viewer" autocomplete="current-password" required>
+        <button type="button" class="pw-toggle" id="pwToggle" aria-label="แสดง/ซ่อนรหัสผ่าน">แสดง</button>
       </div>
       <button class="btn primary block" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
       <p class="hint mt" id="loginErr" style="color:var(--bad);min-height:1.2em"></p>
@@ -289,7 +301,7 @@
 'use strict';
 
 /* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
-var API_URL = 'https://script.google.com/macros/s/AKfycbw1OkAXQAvQfMAv0wO9eXGfkig6Bjol3NBqHo1BshCiYtctuExvlRm-TZ2hEn5Xebhe/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbzSsJdjYQYG6tFL2uanToMa-HiCsB-kPb0rrYXh2JvLNBY2qTLayALGwiQpm7F8J-Qp/exec';
 
 /* ---------- สถานะรวม ---------- */
 var STATE = {
@@ -415,15 +427,38 @@ function busy(btn, on, textWhenIdle) {
 /* ============================================================
  * เข้าสู่ระบบ
  * ========================================================== */
+var LOGIN_ROLE = 'viewer';
 function initLogin() {
   var form = document.getElementById('loginForm');
+  var pw = document.getElementById('pw');
+
+  // เลือกสิทธิ์ Viewer / Admin
+  var roleToggle = document.getElementById('roleToggle');
+  roleToggle.addEventListener('click', function (e) {
+    var b = e.target.closest('.role-opt');
+    if (!b) return;
+    LOGIN_ROLE = b.getAttribute('data-role');
+    roleToggle.querySelectorAll('.role-opt').forEach(function (x) { x.classList.toggle('active', x === b); });
+    pw.placeholder = 'รหัสผ่าน ' + (LOGIN_ROLE === 'admin' ? 'Admin' : 'Viewer');
+    pw.focus();
+  });
+
+  // ปุ่มแสดง/ซ่อนรหัสผ่าน
+  var pwToggle = document.getElementById('pwToggle');
+  pwToggle.addEventListener('click', function () {
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    pwToggle.textContent = show ? 'ซ่อน' : 'แสดง';
+    pw.focus();
+  });
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var btn = document.getElementById('loginBtn');
     var err = document.getElementById('loginErr');
     err.textContent = '';
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-    api('auth.login', { password: document.getElementById('pw').value })
+    api('auth.login', { password: pw.value, role: LOGIN_ROLE })
       .then(function (d) {
         STATE.token = d.token;
         try { sessionStorage.setItem('cctv_token', d.token); } catch (e2) {}
