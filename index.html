@@ -35,6 +35,8 @@
     --nav-h: 64px;
     --tap: 42px;
     --maxw: 1760px;
+    --panel-w: 320px;
+    --panel-x: 12px;
     color-scheme: dark;
   }
   :root[data-theme="light"] {
@@ -117,8 +119,8 @@
 
   /* ---------- แผงควบคุมด้านซ้าย ---------- */
   .panel {
-    position: absolute; left: 12px; top: 12px; bottom: calc(var(--status-h) + 12px); z-index: 800;
-    width: 320px; max-width: calc(100vw - 24px);
+    position: absolute; left: var(--panel-x); top: 12px; bottom: calc(var(--status-h) + 12px); z-index: 800;
+    width: var(--panel-w); max-width: calc(100vw - 24px);
     display: flex; flex-direction: column;
     background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
@@ -142,19 +144,23 @@
     width: 100%; min-height: 38px; padding: 8px 10px; font-size: .9rem;
     border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text);
   }
-  .layer-btn {
-    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-    padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px;
-    background: var(--surface-2); color: var(--text); cursor: pointer; font-size: .88rem;
-  }
-  .layer-btn:hover { border-color: var(--primary); }
-  .layer-btn.off { opacity: .38; }
+  .panel-body.chip-wrap { flex-direction: row; flex-wrap: wrap; gap: 6px; padding-top: 6px; }
   .badge-dot {
     width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px;
     display: flex; align-items: center; justify-content: center;
     font-size: 10px; font-weight: 800; color: #fff;
   }
-  .layer-btn .ct { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: .82rem; }
+  .chip-btn {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    padding: 4px 9px 4px 5px; border: 1px solid var(--border-soft); border-radius: 999px;
+    background: var(--surface-2); color: var(--text); cursor: pointer; font-size: .8rem; line-height: 1.3;
+  }
+  .chip-btn:hover { border-color: var(--primary); }
+  .chip-btn.off { opacity: .4; }
+  .chip-btn.on { border-color: var(--primary); }
+  .chip-btn .badge-dot { width: 16px; height: 16px; border-radius: 50%; font-size: 8px; }
+  .chip-btn .ct { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: .72rem; }
+  .chip-btn.all { padding: 5px 11px; font-weight: 700; }
   .cam-list { padding: 4px 8px 8px; gap: 1px; }
   .cam-item {
     display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px;
@@ -167,15 +173,21 @@
   .cam-item .ci-sub { color: var(--text-dim); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cam-item .ci-st { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-  .app.panel-closed .panel { transform: translateX(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
-  .panel-open {
-    position: absolute; left: 12px; top: 12px; z-index: 800;
-    display: none; align-items: center; gap: 7px;
-    padding: 9px 14px; border: 1px solid var(--border); border-radius: 9px;
-    background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    color: var(--text); cursor: pointer; font-weight: 600; font-size: .88rem; box-shadow: var(--shadow);
+  .app.panel-closed .panel { transform: translateX(calc(-100% - var(--panel-x) - 8px)); opacity: 0; pointer-events: none; }
+
+  /* แท็บบุ๊กมาร์กสีแดง — ย่อ/ขยายแผงควบคุม */
+  .panel-tab {
+    position: absolute; z-index: 801;
+    left: calc(var(--panel-x) + var(--panel-w)); top: 50%; transform: translateY(-50%);
+    width: 20px; height: 58px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 0 9px 9px 0; cursor: pointer;
+    background: #e11d2f; color: #fff; font-size: .82rem; line-height: 1;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, .35);
+    transition: left .22s ease;
   }
-  .app.panel-closed .panel-open { display: inline-flex; }
+  .panel-tab:hover { background: #c1121f; }
+  .app.panel-closed .panel-tab { left: 0; }
 
   /* ---------- ปุ่มเครื่องมือบนแผนที่ ---------- */
   .map-tools { position: absolute; right: 12px; top: 12px; z-index: 800; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
@@ -205,10 +217,10 @@
   #view { max-width: var(--maxw); margin: 0 auto; }
 
   @media (max-width: 899px) {
+    :root { --panel-w: min(86vw, 340px); --panel-x: 8px; }
     .hdr { gap: 8px; }
     .hdr-sub { display: none; }
-    .panel { top: 8px; left: 8px; bottom: calc(var(--status-h) + 8px); width: min(86vw, 340px); }
-    .app.panel-closed .panel-open { left: 8px; top: 8px; }
+    .panel { top: 8px; bottom: calc(var(--status-h) + 8px); }
   }
 
   /* ================= การ์ด / กริด ================= */
@@ -232,6 +244,9 @@
 
   .section-head { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; }
   .section-head h2 { margin: 0; flex: 1; }
+  .section-head:first-child { margin-top: 0; }
+  .page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin: 0 0 14px; }
+  .page-actions.spread { justify-content: space-between; }
 
   /* ================= ตาราง / รายการ ================= */
   .list { display: grid; gap: 10px; }
@@ -452,7 +467,7 @@
       <aside class="panel" id="panel">
         <div class="panel-scroll" id="panelScroll"></div>
       </aside>
-      <button class="panel-open" id="panelOpen">☰ แผงควบคุม</button>
+      <button class="panel-tab" id="panelTab" title="ย่อ/ขยายแผงควบคุม" aria-label="ย่อ/ขยายแผงควบคุม">◀</button>
 
       <div class="map-tools" id="mapTools"></div>
       <div class="statusbar" id="statusbar"></div>
@@ -474,6 +489,7 @@
   <script>
 /* ============================================================
  * CCTV Web App — client (vanilla JS) — เวอร์ชันเปิดไฟล์แยกเดี่ยว
+ * UI v5: แผนที่เป็นหน้าหลัก · Header menu · แผงควบคุมซ้ายพับได้ (แท็บสีแดง)
  * คุยกับ backend (Apps Script) ผ่าน fetch ไปที่ API_URL ด้านล่าง
  * ========================================================== */
 'use strict';
@@ -700,7 +716,8 @@ function wireChrome() {
   var lg = document.getElementById('logoutBtn'); if (lg) lg.onclick = doLogout;
   var br = document.getElementById('brandHome'); if (br) br.onclick = function () { go('map'); };
   var oc = document.getElementById('overlayClose'); if (oc) oc.onclick = function () { go('map'); };
-  var po = document.getElementById('panelOpen'); if (po) po.onclick = function () { setPanel(true); };
+  var pt = document.getElementById('panelTab');
+  if (pt) pt.onclick = function () { setPanel(document.getElementById('app').classList.contains('panel-closed')); };
 
   var rf = document.getElementById('refreshBtn');
   if (rf) rf.onclick = function (e) {
@@ -727,6 +744,8 @@ function wireChrome() {
 
 function setPanel(open) {
   document.getElementById('app').classList.toggle('panel-closed', !open);
+  var pt = document.getElementById('panelTab');
+  if (pt) pt.textContent = open ? '◀' : '▶';
   try { localStorage.setItem('cctv_panel', open ? 'open' : 'closed'); } catch (e) {}
   if (_map) setTimeout(function () { _map.invalidateSize(); }, 240);
 }
@@ -783,13 +802,6 @@ function viewDashboard(host) {
     var k = d.kpi;
     host.innerHTML = '';
 
-    host.appendChild(el('div', { class: 'section-head' }, [
-      el('h2', { text: 'ภาพรวม' }),
-      el('button', { class: 'btn sm', title: 'โหลดข้อมูลใหม่', onclick: function (e) {
-        busy(e.target, true); go('dashboard');
-      } }, ['↻ รีเฟรช']),
-    ]));
-
     host.appendChild(el('div', { class: 'grid kpi' }, [
       kpiCard(k.total, 'กล้องทั้งหมด', 'accent'),
       kpiCard(k.usable, 'ใช้งานได้', 'ok'),
@@ -810,13 +822,6 @@ function viewDashboard(host) {
 
     host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'งานซ่อมที่ยังไม่ปิด' })]));
     host.appendChild(miniMaintList(d.open_maintenance_list));
-
-    // ทางลัด export/settings (เข้าถึงบนมือถือ)
-    var shortcuts = el('div', { class: 'chip-row mt' }, [
-      el('button', { class: 'btn sm', onclick: function () { go('export'); } }, ['📤 ส่งออกข้อมูล']),
-    ]);
-    if (STATE.role === 'admin') shortcuts.appendChild(el('button', { class: 'btn sm', onclick: function () { go('settings'); } }, ['⚙️ ตั้งค่า']));
-    host.appendChild(shortcuts);
 
     host.appendChild(el('p', { class: 'muted center mt', text: 'ข้อมูล ณ ' + fmtDateTime(d.generated_at) }));
   });
@@ -878,8 +883,9 @@ function setCameraFilter(k, v) {
 }
 function viewCameras(host) {
   host.innerHTML = '';
-  var head = el('div', { class: 'section-head' }, [el('h2', { text: 'ทะเบียนกล้อง' })]);
-  head.appendChild(el('button', { class: 'btn sm', onclick: openCamExportMenu }, ['⬇️ ส่งออก']));
+  var head = el('div', { class: 'page-actions' }, [
+    el('button', { class: 'btn sm', onclick: openCamExportMenu }, ['⬇️ ส่งออก']),
+  ]);
   if (STATE.role === 'admin') head.appendChild(el('button', { class: 'btn primary sm', onclick: function () { openCameraForm(null); } }, ['+ เพิ่มกล้อง']));
   host.appendChild(head);
 
@@ -1144,8 +1150,8 @@ function openCameraForm(cam) {
   var selType = selectFromLookup('camera_type', cam ? cam.camera_type : '');
   var selSub = selectFromLookup('camera_subtype', cam ? cam.camera_subtype : '');
   var selStatus = selectFromLookup('status', cam ? cam.status : 'USABLE');
-  var lat = el('input', { type: 'number', step: 'any', placeholder: '13.912345', value: cam && cam.latitude != null ? cam.latitude : '' });
-  var lng = el('input', { type: 'number', step: 'any', placeholder: '100.601234', value: cam && cam.longitude != null ? cam.longitude : '' });
+  var lat = el('input', { type: 'number', step: 'any', placeholder: '14.874667', value: cam && cam.latitude != null ? cam.latitude : '' });
+  var lng = el('input', { type: 'number', step: 'any', placeholder: '100.663333', value: cam && cam.longitude != null ? cam.longitude : '' });
   var note = el('textarea', { placeholder: 'หมายเหตุ' }, [cam ? cam.note : '']);
 
   f.appendChild(fld('หน่วยงาน', selUnit, true));
@@ -1211,7 +1217,7 @@ function assetStatusBadge(code) {
 
 function viewAssets(host) {
   host.innerHTML = '';
-  var head = el('div', { class: 'section-head' }, [ el('h2', { text: 'ทะเบียนพัสดุ' }) ]);
+  var head = el('div', { class: 'page-actions spread' }, []);
   var seg = el('div', { class: 'role-toggle', style: 'max-width:260px;margin:0' }, [
     el('button', { type: 'button', class: 'role-opt' + (AST_MODE === 'list' ? ' active' : ''), onclick: function () { AST_MODE = 'list'; go('assets'); } }, ['รายชิ้น']),
     el('button', { type: 'button', class: 'role-opt' + (AST_MODE === 'summary' ? ' active' : ''), onclick: function () { AST_MODE = 'summary'; go('assets'); } }, ['สรุป']),
@@ -1420,11 +1426,9 @@ function renderAssetSummary(host, d) {
  * ========================================================== */
 function viewInspections(host) {
   host.innerHTML = '';
-  var head = el('div', { class: 'section-head' }, [
-    el('h2', { text: 'บันทึกการตรวจ' }),
+  host.appendChild(el('div', { class: 'page-actions' }, [
     el('button', { class: 'btn primary sm', onclick: function () { openInspectForm(null); } }, ['+ บันทึกตรวจ']),
-  ]);
-  host.appendChild(head);
+  ]));
   host.appendChild(el('div', { id: 'insResult' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
   return api('inspections.list', { filters: { limit: 200 } }).then(function (rows) {
     var box = document.getElementById('insResult'); box.innerHTML = '';
@@ -1491,11 +1495,9 @@ function openInspectForm(cameraId) {
 var MNT_OPEN_ONLY = false;
 function viewMaintenance(host) {
   host.innerHTML = '';
-  var head = el('div', { class: 'section-head' }, [
-    el('h2', { text: 'งานซ่อม' }),
+  host.appendChild(el('div', { class: 'page-actions' }, [
     el('button', { class: 'btn primary sm', onclick: function () { openMaintForm(null); } }, ['+ แจ้งซ่อม']),
-  ]);
-  host.appendChild(head);
+  ]));
   var toggle = el('label', { class: 'chip', style: 'cursor:pointer' }, []);
   var cb = el('input', { type: 'checkbox' });
   cb.checked = MNT_OPEN_ONLY;
@@ -1713,8 +1715,17 @@ var MAP_FILTER = { camera_type: '', camera_subtype: '', status: '' };
 var ACTIVE_LAYERS = null;   // { camera_type: true/false } — เลเยอร์ที่เปิดแสดง (null = ยังไม่ตั้ง)
 var _mapReady = false;
 
-function _familyByType(type) { return _camFamily({ camera_type: type, camera_subtype: '' }); }
 function _geoCams() { return _allCams.filter(function (c) { return c.latitude != null && c.longitude != null; }); }
+
+/* กลุ่มสำหรับปุ่มกรองชนิดย่อย: ใช้ camera_subtype ถ้ามี ไม่งั้น fallback เป็น camera_type */
+function _groupKey(c) {
+  var s = (c.camera_subtype == null ? '' : String(c.camera_subtype)).trim();
+  return s || ('TYPE:' + (c.camera_type || '—'));
+}
+function _groupLabel(c) {
+  var s = (c.camera_subtype == null ? '' : String(c.camera_subtype)).trim();
+  return s || labelOf('camera_type', c.camera_type);
+}
 
 function initMapStage() {
   if (_mapReady) return;
@@ -1725,13 +1736,12 @@ function initMapStage() {
   var savedPanel; try { savedPanel = localStorage.getItem('cctv_panel'); } catch (e) {}
   var startClosed = savedPanel === 'closed' || (savedPanel == null && window.innerWidth < 900);
   document.getElementById('app').classList.toggle('panel-closed', startClosed);
+  var _pt = document.getElementById('panelTab');
+  if (_pt) _pt.textContent = startClosed ? '▶' : '◀';
 
   // ปุ่มเครื่องมือบนแผนที่
   var tools = document.getElementById('mapTools');
   tools.innerHTML = '';
-  tools.appendChild(el('button', { class: 'btn sm', title: 'ซ่อน/แสดงแผงควบคุม', onclick: function () {
-    setPanel(document.getElementById('app').classList.contains('panel-closed'));
-  } }, ['☰ แผง']));
   tools.appendChild(el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลางฐานบิน', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ กึ่งกลาง']));
   if (isAdmin) tools.appendChild(el('button', { class: 'btn sm', title: 'ส่งออกพิกัดกล้องเป็นไฟล์ KML', onclick: exportCamerasKml }, ['⬇️ KML']));
   tools.appendChild(el('button', { class: 'btn sm', title: 'เต็มจอ', onclick: function () { _mapFullscreen(document.getElementById('stage')); } }, ['⛶']));
@@ -1792,11 +1802,11 @@ function buildPanelShell() {
   var savedCollapse = {};
   try { savedCollapse = JSON.parse(localStorage.getItem('cctv_panelsec') || '{}'); } catch (e) {}
   [
-    ['layers', 'เลเยอร์อุปกรณ์', 'layerBox', false],
-    ['filters', 'ตัวกรอง', 'filterBox', false],
-    ['list', null, 'listBox', true],
+    ['layers', 'ชนิดย่อย · กดเพื่อกรอง', 'layerBox', 'panel-body chip-wrap'],
+    ['filters', 'ตัวกรอง', 'filterBox', 'panel-body'],
+    ['list', null, 'listBox', 'panel-body cam-list'],
   ].forEach(function (s) {
-    var body = el('div', { class: s[3] ? 'panel-body cam-list' : 'panel-body', id: s[2] });
+    var body = el('div', { class: s[3], id: s[2] });
     var head = el('h4', { class: 'panel-h' }, [
       s[0] === 'list'
         ? el('span', {}, ['รายการกล้อง ', el('span', { id: 'camCount', class: 'muted' }, ['0'])])
@@ -1823,26 +1833,43 @@ function loadCams() {
   });
 }
 
-/** ปุ่มเปิด/ปิดเลเยอร์ — 1 ปุ่มต่อประเภทอุปกรณ์ (camera_type) ที่มีพิกัดจริง */
+/** ปุ่มกรองเล็ก (chip) จำแนกตามชนิดย่อย — กดสลับเปิด/ปิดหมุดชนิดนั้นบนแผนที่ */
 function buildLayerToggles() {
   var box = document.getElementById('layerBox'); if (!box) return;
-  var counts = {};
-  _geoCams().forEach(function (c) { var t = c.camera_type || '—'; counts[t] = (counts[t] || 0) + 1; });
-  var types = Object.keys(counts).sort(function (a, b) { return labelOf('camera_type', a).localeCompare(labelOf('camera_type', b), 'th'); });
+  var groups = {};   // key -> { label, count, fam, key }
+  _geoCams().forEach(function (c) {
+    var k = _groupKey(c);
+    if (!groups[k]) groups[k] = { key: k, label: _groupLabel(c), count: 0, fam: _camFamily(c) };
+    groups[k].count++;
+  });
+  var keys = Object.keys(groups).sort(function (a, b) { return groups[a].label.localeCompare(groups[b].label, 'th'); });
   if (!ACTIVE_LAYERS) ACTIVE_LAYERS = {};
-  types.forEach(function (t) { if (!(t in ACTIVE_LAYERS)) ACTIVE_LAYERS[t] = true; });
+  keys.forEach(function (k) { if (!(k in ACTIVE_LAYERS)) ACTIVE_LAYERS[k] = true; });
   box.innerHTML = '';
-  if (!types.length) { box.appendChild(el('p', { class: 'muted', style: 'font-size:.82rem', text: 'ยังไม่มีกล้องที่กรอกพิกัด' })); return; }
-  types.forEach(function (t) {
-    var fam = _familyByType(t);
-    var btn = el('button', { class: 'layer-btn' + (ACTIVE_LAYERS[t] ? '' : ' off'), onclick: function () {
-      ACTIVE_LAYERS[t] = !ACTIVE_LAYERS[t];
-      btn.classList.toggle('off', !ACTIVE_LAYERS[t]);
+  if (!keys.length) { box.appendChild(el('p', { class: 'muted', style: 'font-size:.82rem', text: 'ยังไม่มีกล้องที่กรอกพิกัด' })); return; }
+
+  var allOn = keys.every(function (k) { return ACTIVE_LAYERS[k] !== false; });
+  var allBtn = el('button', { class: 'chip-btn all' + (allOn ? '' : ' off'), title: 'เปิด/ปิดทั้งหมด', onclick: function () {
+    var turnOn = !keys.every(function (k) { return ACTIVE_LAYERS[k] !== false; });
+    keys.forEach(function (k) { ACTIVE_LAYERS[k] = turnOn; });
+    buildLayerToggles(); plotCameras();
+  } }, [el('span', { text: allOn ? '✓ ทั้งหมด' : 'ทั้งหมด' })]);
+  box.appendChild(allBtn);
+
+  keys.forEach(function (k) {
+    var g = groups[k];
+    var on = ACTIVE_LAYERS[k] !== false;
+    var btn = el('button', { class: 'chip-btn' + (on ? ' on' : ' off'), title: g.label + ' · ' + g.count + ' ตัว', onclick: function () {
+      ACTIVE_LAYERS[k] = (ACTIVE_LAYERS[k] === false);
+      btn.classList.toggle('on', ACTIVE_LAYERS[k] !== false);
+      btn.classList.toggle('off', ACTIVE_LAYERS[k] === false);
+      allBtn.classList.toggle('off', !keys.every(function (x) { return ACTIVE_LAYERS[x] !== false; }));
+      allBtn.firstChild.textContent = keys.every(function (x) { return ACTIVE_LAYERS[x] !== false; }) ? '✓ ทั้งหมด' : 'ทั้งหมด';
       plotCameras();
     } }, [
-      el('span', { class: 'badge-dot', style: 'background:' + fam.bg, text: fam.code }),
-      el('span', { text: labelOf('camera_type', t) }),
-      el('span', { class: 'ct', text: String(counts[t]) }),
+      el('span', { class: 'badge-dot', style: 'background:' + g.fam.bg, text: g.fam.code }),
+      el('span', { text: g.label }),
+      el('span', { class: 'ct', text: String(g.count) }),
     ]);
     box.appendChild(btn);
   });
@@ -1871,7 +1898,7 @@ function buildMapFilters() {
 }
 
 function _passFilter(c) {
-  if (ACTIVE_LAYERS && ACTIVE_LAYERS[c.camera_type || '—'] === false) return false;
+  if (ACTIVE_LAYERS && ACTIVE_LAYERS[_groupKey(c)] === false) return false;
   if (MAP_FILTER.camera_type && c.camera_type !== MAP_FILTER.camera_type) return false;
   if (MAP_FILTER.camera_subtype && (c.camera_subtype || '') !== MAP_FILTER.camera_subtype) return false;
   if (MAP_FILTER.status && c.status !== MAP_FILTER.status) return false;
@@ -2038,8 +2065,7 @@ function openCoordPopup(latlng, presetCam) {
  * ========================================================== */
 function viewExport(host) {
   host.innerHTML = '';
-  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'ส่งออกข้อมูล' })]));
-  host.appendChild(el('p', { class: 'muted', text: 'ดาวน์โหลดเป็นไฟล์ CSV (เปิดใน Excel / Google Sheets ได้ รองรับภาษาไทย)' }));
+  host.appendChild(el('p', { class: 'muted', style: 'margin-top:0', text: 'ดาวน์โหลดเป็นไฟล์ CSV (เปิดใน Excel / Google Sheets ได้ รองรับภาษาไทย)' }));
   var box = el('div', { class: 'list' });
   [['cameras', '📹 ทะเบียนกล้อง'], ['assets', '📦 ทะเบียนพัสดุ'], ['inspections', '📝 บันทึกการตรวจ'], ['maintenance', '🔧 บันทึกการซ่อม']].forEach(function (p) {
     box.appendChild(el('button', { class: 'btn block', onclick: function (e) {
@@ -2066,7 +2092,6 @@ function downloadText(filename, text, mime) {
  * ========================================================== */
 function viewSettings(host) {
   host.innerHTML = '';
-  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'ตั้งค่า' })]));
   ['unit', 'location'].forEach(function (list) {
     var card = el('div', { class: 'card', style: 'margin-bottom:14px' });
     card.appendChild(el('h3', { text: list === 'unit' ? 'หน่วยงาน' : 'สถานที่ติดตั้ง' }));
