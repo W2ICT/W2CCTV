@@ -74,21 +74,32 @@
 
   .shell { display: flex; max-width: var(--maxw); margin: 0 auto; }
 
+  .icon-btn { font-size: 1.15rem; padding: 0 10px; }
+  #sideToggle { display: none; }
+
   .sidebar { display: none; }
   @media (min-width: 900px) {
+    #sideToggle { display: inline-flex; }
     .sidebar {
       display: flex; flex-direction: column; gap: 4px;
       width: 220px; flex-shrink: 0; padding: 16px 10px;
       position: sticky; top: 57px; align-self: flex-start; height: calc(100vh - 57px);
+      transition: width .18s ease, padding .18s ease;
+      overflow: hidden;
     }
     .sidebar button {
       display: flex; align-items: center; gap: 10px;
       padding: 11px 14px; border-radius: 10px; border: 0; background: transparent;
-      cursor: pointer; text-align: left; width: 100%; font-size: .98rem;
+      cursor: pointer; text-align: left; width: 100%; font-size: .98rem; white-space: nowrap;
     }
-    .sidebar button .ic { font-size: 1.15rem; width: 22px; text-align: center; }
+    .sidebar button .ic { font-size: 1.15rem; width: 22px; text-align: center; flex-shrink: 0; }
     .sidebar button:hover { background: var(--surface); }
     .sidebar button.active { background: var(--primary); color: var(--primary-ink); font-weight: 600; }
+
+    /* โหมดย่อเมนู (icon rail) */
+    .side-collapsed .sidebar { width: 60px; padding: 16px 6px; }
+    .side-collapsed .sidebar .lbl { display: none; }
+    .side-collapsed .sidebar button { justify-content: center; padding: 11px 0; }
   }
 
   main { flex: 1; min-width: 0; padding: 16px 14px calc(var(--nav-h) + 28px); }
@@ -246,7 +257,13 @@
   @media (min-width: 900px) { .toast { bottom: 24px; } }
   .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #map { width: 100%; height: 62vh; border-radius: 12px; border: 1px solid var(--border); }
+  /* ================= แผนที่ ================= */
+  .map-wrap { position: relative; }
+  #map { width: 100%; height: calc(100vh - 150px); min-height: 380px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+  .map-wrap:fullscreen { background: #000; }
+  .map-wrap:fullscreen #map { height: 100vh; border-radius: 0; border: 0; }
+  .map-fs-btn { position: absolute; top: 10px; right: 10px; z-index: 500; }
+  .leaflet-control-layers { font-size: .9rem; }
   .bar { height: 8px; border-radius: 999px; background: var(--muted-bg); overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--primary); }
 </style>
@@ -275,6 +292,7 @@
   <!-- ---------- แอปหลัก ---------- -->
   <div class="app" id="app">
     <div class="topbar">
+      <button class="btn ghost sm icon-btn" id="sideToggle" title="ย่อ/ขยายเมนู" aria-label="ย่อ/ขยายเมนู">☰</button>
       <span style="font-size:1.3rem">📹</span>
       <span class="title" id="appTitle">ระบบฐานข้อมูล CCTV</span>
       <span class="role-badge" id="roleBadge">viewer</span>
@@ -522,8 +540,8 @@ function buildNav() {
   var side = document.getElementById('sidebar');
   side.innerHTML = '';
   navItems().forEach(function (n) {
-    side.appendChild(el('button', { 'data-nav': n.id, onclick: function () { go(n.id); } }, [
-      el('span', { class: 'ic', text: n.ic }), document.createTextNode(n.label),
+    side.appendChild(el('button', { 'data-nav': n.id, title: n.label, onclick: function () { go(n.id); } }, [
+      el('span', { class: 'ic', text: n.ic }), el('span', { class: 'lbl', text: n.label }),
     ]));
   });
   var bot = document.getElementById('botnav');
@@ -533,7 +551,21 @@ function buildNav() {
       el('span', { class: 'ic', text: n.ic }), document.createTextNode(n.label),
     ]));
   });
-  // ปุ่ม "เพิ่มเติม" บนมือถือแทนช่องที่ 5? -> ใช้เมนู 5 หลัก + เข้าถึง export/settings ผ่านหน้า dashboard
+
+  // ปุ่มย่อ/ขยายเมนู (เดสก์ท็อป) — จำสถานะไว้
+  var st = document.getElementById('sideToggle');
+  if (st && !st._wired) {
+    st._wired = true;
+    var saved;
+    try { saved = localStorage.getItem('cctv_side'); } catch (e) {}
+    if (saved === 'collapsed') document.getElementById('app').classList.add('side-collapsed');
+    st.addEventListener('click', function () {
+      var app = document.getElementById('app');
+      var now = app.classList.toggle('side-collapsed');
+      try { localStorage.setItem('cctv_side', now ? 'collapsed' : 'expanded'); } catch (e) {}
+      if (_map && STATE.view === 'map') setTimeout(function () { _map.invalidateSize(); }, 220);
+    });
+  }
 }
 function markNav() {
   document.querySelectorAll('[data-nav]').forEach(function (b) {
@@ -563,6 +595,13 @@ function viewDashboard(host) {
     STATE.dashboard = d;
     var k = d.kpi;
     host.innerHTML = '';
+
+    host.appendChild(el('div', { class: 'section-head' }, [
+      el('h2', { text: 'ภาพรวม' }),
+      el('button', { class: 'btn sm', title: 'โหลดข้อมูลใหม่', onclick: function (e) {
+        busy(e.target, true); go('dashboard');
+      } }, ['↻ รีเฟรช']),
+    ]));
 
     host.appendChild(el('div', { class: 'grid kpi' }, [
       kpiCard(k.total, 'กล้องทั้งหมด', 'accent'),
@@ -1013,6 +1052,15 @@ var MAP_CENTER = [14.874667, 100.663333];
 var MAP_ZOOM = 15;
 var MAP_CENTER_LABEL = "14°52.480'N 100°39.800'E";
 
+function _mapFullscreen(wrap) {
+  var el2 = wrap;
+  if (!document.fullscreenElement) {
+    (el2.requestFullscreen || el2.webkitRequestFullscreen || function () {}).call(el2);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+  }
+}
+
 function viewMap(host) {
   host.innerHTML = '';
   var head = el('div', { class: 'section-head' }, [
@@ -1020,7 +1068,13 @@ function viewMap(host) {
     el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลาง', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ จุดกึ่งกลาง']),
   ]);
   host.appendChild(head);
-  host.appendChild(el('div', { id: 'map' }));
+
+  var mapWrap = el('div', { class: 'map-wrap' }, [
+    el('div', { id: 'map' }),
+    el('button', { class: 'btn sm map-fs-btn', title: 'เต็มจอ', onclick: function () { _mapFullscreen(mapWrap); } }, ['⛶ เต็มจอ']),
+  ]);
+  host.appendChild(mapWrap);
+
   var legend = el('div', { class: 'chip-row mt' }, [
     el('span', { class: 'chip', html: '🟢 ใช้งานได้' }), el('span', { class: 'chip', html: '🔴 ใช้งานไม่ได้' }),
     el('span', { class: 'chip', html: '🟠 ระหว่างซ่อม' }), el('span', { class: 'chip', html: '⚪ อื่น ๆ' }),
@@ -1028,18 +1082,51 @@ function viewMap(host) {
   host.appendChild(legend);
   host.appendChild(el('p', { class: 'muted mt', id: 'mapNote' }));
 
+  if (!window._fsWired) {
+    window._fsWired = true;
+    var onFsChange = function () { if (_map) setTimeout(function () { _map.invalidateSize(); }, 200); };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+  }
+
   return api('cameras.list', { filters: { hasGeo: true } }).then(function (rows) {
     var note = document.getElementById('mapNote');
     setTimeout(function () {
       if (_map) { _map.remove(); _map = null; }
-      _map = L.map('map');
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, attribution: '© OpenStreetMap',
-      }).addTo(_map);
+      _map = L.map('map', { zoomControl: true });
 
-      // ล็อคจุดกึ่งกลางเสมอ + หมุดอ้างอิงตรงกลาง
+      // ---- ชั้นแผนที่ฐาน (base layers) ----
+      var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 21, attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+      });
+      var street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '© OpenStreetMap',
+      });
+      var topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17, attribution: '© OpenTopoMap',
+      });
+      // ---- ชั้นทับ (overlay) ----
+      var labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 21, opacity: 0.9,
+      });
+      var roads = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 21, opacity: 0.9,
+      });
+
+      var saved;
+      try { saved = localStorage.getItem('cctv_maplayer'); } catch (e) {}
+      var bases = { 'ภาพถ่ายดาวเทียม': sat, 'แผนที่ถนน (OSM)': street, 'แผนที่ภูมิประเทศ': topo };
+      (bases[saved] || sat).addTo(_map);
+      labels.addTo(_map);
+
+      L.control.layers(bases, { 'ชื่อสถานที่': labels, 'ถนน/ทางหลวง': roads }, { collapsed: true, position: 'topright' }).addTo(_map);
+      _map.on('baselayerchange', function (e) {
+        try { localStorage.setItem('cctv_maplayer', e.name); } catch (err) {}
+      });
+
+      // ---- ล็อคจุดกึ่งกลาง + หมุดอ้างอิง ----
       _map.setView(MAP_CENTER, MAP_ZOOM);
-      L.circleMarker(MAP_CENTER, { radius: 7, color: '#2563eb', weight: 3, fillColor: '#2563eb', fillOpacity: 0.15 })
+      L.circleMarker(MAP_CENTER, { radius: 7, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 0.9 })
         .addTo(_map)
         .bindPopup('<b>จุดกึ่งกลางฐานบิน</b><br>' + MAP_CENTER_LABEL);
 
@@ -1049,6 +1136,7 @@ function viewMap(host) {
         mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)));
       });
 
+      _map.invalidateSize();
       note.textContent = rows.length
         ? ('แสดง ' + rows.length + ' กล้องที่มีพิกัด · กึ่งกลาง ' + MAP_CENTER_LABEL)
         : ('ยังไม่มีกล้องที่กรอกพิกัด GPS — กึ่งกลางล็อกที่ ' + MAP_CENTER_LABEL);
