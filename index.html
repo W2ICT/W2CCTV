@@ -276,6 +276,8 @@
   .map-fs-btn { position: absolute; top: 10px; right: 10px; z-index: 500; }
   .leaflet-control-layers { font-size: .9rem; }
   .edit-pin i { display: block; width: 20px; height: 20px; border-radius: 50%; background: #f59e0b; border: 3px solid #fff; box-shadow: 0 0 0 3px rgba(245,158,11,.45), 0 1px 4px rgba(0,0,0,.4); }
+  .cam-pin-wrap { background: transparent; border: 0; }
+  .cam-pin { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 3px solid #fff; color: #fff; font-weight: 800; font-size: 11px; line-height: 1; box-shadow: 0 1px 5px rgba(0,0,0,.55); }
   .coord-pop { min-width: 220px; }
   .coord-pop select { width: 100%; max-width: 260px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
   .coord-pop .btn { min-height: 34px; }
@@ -770,15 +772,15 @@ function reloadCameras() {
     var wrap = el('div', { class: 'table-wrap only-desktop' });
     var t = el('table', { class: 'data fixed' });
     t.innerHTML =
-      '<colgroup><col class="col-id"><col class="col-md"><col><col class="col-lg"><col class="col-badge"><col class="col-lg"></colgroup>' +
-      '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท / ชนิดย่อย</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
+      '<colgroup><col class="col-id"><col class="col-md"><col><col class="col-md"><col class="col-lg"><col class="col-badge"><col class="col-lg"></colgroup>' +
+      '<thead><tr><th>รหัส</th><th>หน่วยงาน</th><th>สถานที่</th><th>ประเภท</th><th>ชนิดย่อย</th><th>สถานะ</th><th>พิกัด</th></tr></thead>';
     var tb = el('tbody');
     rows.forEach(function (c) {
       var tr = el('tr', { onclick: function () { openCameraDetail(c.camera_id); } });
-      var typeCell = esc(labelOf('camera_type', c.camera_type)) + (c.camera_subtype ? '<br><span class="muted" style="font-size:.86em">' + esc(c.camera_subtype) + '</span>' : '');
       var geo = c.latitude != null ? (Math.round(c.latitude * 1e5) / 1e5 + ', ' + Math.round(c.longitude * 1e5) / 1e5) : '—';
       tr.innerHTML = '<td class="nowrap"><strong>' + esc(c.camera_id) + '</strong></td><td>' + esc(c.unit) + '</td><td>' + esc(c.location) +
-        '</td><td>' + typeCell + '</td><td class="nowrap">' + statusBadge(c.status) +
+        '</td><td class="nowrap">' + esc(labelOf('camera_type', c.camera_type)) + '</td><td class="nowrap muted">' + esc(c.camera_subtype || '—') +
+        '</td><td class="nowrap">' + statusBadge(c.status) +
         '</td><td class="nowrap muted">' + geo + '</td>';
       tb.appendChild(tr);
     });
@@ -1310,9 +1312,33 @@ var _editMarker = null;    // หมุดที่กำลังกำหน�
 var _allCams = [];         // cache กล้องทั้งหมด
 
 function _statusColor(s) {
-  return s === 'USABLE' ? '#16a34a' : s === 'UNUSABLE' ? '#dc2626' : s === 'REPAIRING' ? '#d97706' : '#94a3b8';
+  return s === 'USABLE' ? '#16a34a' : s === 'UNUSABLE' ? '#dc2626' : s === 'REPAIRING' ? '#d97706'
+       : s === 'DECOMMISSIONED' ? '#64748b' : '#94a3b8';
 }
 function _r6(n) { return Math.round(n * 1e6) / 1e6; }
+
+/** จำแนกสัญลักษณ์ตามชนิดย่อย (fallback ประเภทกล้อง) → { code, bg } */
+function _camFamily(c) {
+  var sub = (c.camera_subtype || '').toLowerCase();
+  var ty = c.camera_type;
+  if (sub.indexOf('thermal') > -1 || ty === 'PTZT') return { code: 'PT', bg: '#ea580c' };
+  if (sub.indexOf('ptz') > -1 || ty === 'PTZ') return { code: 'P', bg: '#7c3aed' };
+  if (sub.indexOf('od_5mp') > -1 || sub.indexOf('outdoor') > -1 || sub.indexOf('ภายนอก') > -1) return { code: 'BO', bg: '#0d9488' };
+  if (sub.indexOf('bullet') > -1 || ty === 'BULLET') return { code: 'B', bg: '#0d9488' };
+  if (sub.indexOf('dome') > -1 || ty === 'DOME') return { code: 'D', bg: '#2563eb' };
+  return { code: '•', bg: '#64748b' };
+}
+
+/** ไอคอนหมุดกล้อง: สี/ตัวอักษร = ชนิด, ขอบ = สถานะ */
+function _camIcon(c) {
+  var fam = _camFamily(c);
+  var ring = _statusColor(c.status);
+  return L.divIcon({
+    className: 'cam-pin-wrap',
+    html: '<div class="cam-pin" style="background:' + fam.bg + ';border-color:' + ring + '">' + fam.code + '</div>',
+    iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
+  });
+}
 
 function viewMap(host) {
   host.innerHTML = '';
@@ -1333,11 +1359,21 @@ function viewMap(host) {
   ]);
   host.appendChild(mapWrap);
 
-  var legend = el('div', { class: 'chip-row mt' }, [
-    el('span', { class: 'chip', html: '🟢 ใช้งานได้' }), el('span', { class: 'chip', html: '🔴 ใช้งานไม่ได้' }),
-    el('span', { class: 'chip', html: '🟠 ระหว่างซ่อม' }), el('span', { class: 'chip', html: '⚪ อื่น ๆ' }),
-  ]);
-  host.appendChild(legend);
+  host.appendChild(el('div', { class: 'chip-row mt', style: 'align-items:center' }, [
+    el('span', { class: 'muted', style: 'font-size:.82rem', text: 'ขอบ = สถานะ:' }),
+    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #16a34a"></span> ใช้งานได้' }),
+    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #dc2626"></span> ใช้งานไม่ได้' }),
+    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #d97706"></span> ระหว่างซ่อม' }),
+    el('span', { class: 'chip', html: '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:3px solid #94a3b8"></span> อื่น ๆ' }),
+  ]));
+  host.appendChild(el('div', { class: 'chip-row', style: 'align-items:center;margin-top:6px' }, [
+    el('span', { class: 'muted', style: 'font-size:.82rem', text: 'สัญลักษณ์ = ชนิด:' }),
+    el('span', { class: 'chip', html: '<b style="color:#2563eb">D</b> Dome' }),
+    el('span', { class: 'chip', html: '<b style="color:#0d9488">B</b> Bullet (ภายใน)' }),
+    el('span', { class: 'chip', html: '<b style="color:#0d9488">BO</b> Bullet (ภายนอก)' }),
+    el('span', { class: 'chip', html: '<b style="color:#7c3aed">P</b> PTZ' }),
+    el('span', { class: 'chip', html: '<b style="color:#ea580c">PT</b> PTZ Thermal' }),
+  ]));
   host.appendChild(el('p', { class: 'muted mt', id: 'mapNote' }));
 
   if (!window._fsWired) {
@@ -1440,7 +1476,7 @@ function viewMap(host) {
     _allCams.forEach(function (c) {
       if (c.latitude == null || c.longitude == null) return;
       withGeo++;
-      var mk = L.circleMarker([c.latitude, c.longitude], { radius: 8, color: '#fff', weight: 2, fillColor: _statusColor(c.status), fillOpacity: 1, bubblingMouseEvents: false });
+      var mk = L.marker([c.latitude, c.longitude], { icon: _camIcon(c) });
       mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(c.camera_subtype || labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)) +
         (isAdmin ? '<br><a href="#" onclick="return false" data-editcam="1">✎ ย้ายพิกัด</a>' : ''));
       if (isAdmin) {
