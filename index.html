@@ -28,7 +28,7 @@
     --radius: 14px;
     --nav-h: 64px;
     --tap: 44px;
-    --maxw: 1200px;
+    --maxw: 1760px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -103,7 +103,7 @@
   }
 
   main { flex: 1; min-width: 0; padding: 16px 14px calc(var(--nav-h) + 28px); }
-  @media (min-width: 900px) { main { padding-bottom: 40px; } }
+  @media (min-width: 900px) { main { padding: 20px 28px 40px; } }
 
   /* ================= Bottom nav (มือถือ) ================= */
   .botnav {
@@ -155,8 +155,11 @@
   .row-card .sub { color: var(--text-dim); font-size: .9rem; }
 
   table.data { width: 100%; border-collapse: collapse; font-size: .93rem; }
-  table.data th, table.data td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  table.data th { color: var(--text-dim); font-weight: 700; position: sticky; top: 0; z-index: 2; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
+  table.data { table-layout: auto; }
+  table.data th, table.data td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.data td { white-space: normal; overflow-wrap: anywhere; }
+  table.data th { white-space: nowrap; color: var(--text-dim); font-weight: 700; position: sticky; top: 0; z-index: 2; background: var(--surface); box-shadow: inset 0 -1px 0 var(--border); }
+  table.data td.nowrap, table.data th.nowrap { white-space: nowrap; }
   table.data tr { cursor: pointer; }
   table.data tbody tr:hover td { background: var(--surface-2); }
   .table-wrap { overflow: auto; max-height: 70vh; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
@@ -296,6 +299,7 @@
       <span style="font-size:1.3rem">📹</span>
       <span class="title" id="appTitle">ระบบฐานข้อมูล CCTV</span>
       <span class="role-badge" id="roleBadge">viewer</span>
+      <button class="btn ghost sm icon-btn" id="refreshBtn" title="รีเฟรชข้อมูลหน้านี้" aria-label="รีเฟรช">↻</button>
       <button class="btn ghost sm" id="logoutBtn" title="ออกจากระบบ">ออก</button>
     </div>
 
@@ -480,6 +484,8 @@ function initLogin() {
     api('auth.login', { password: pw.value, role: LOGIN_ROLE })
       .then(function (d) {
         STATE.token = d.token;
+        // เก็บใน sessionStorage — รอด refresh (F5) แต่หายเมื่อปิดแท็บ/เบราว์เซอร์
+        try { sessionStorage.setItem('cctv_token', d.token); } catch (e2) {}
         return bootstrap();
       })
       .catch(function (ex) {
@@ -488,8 +494,17 @@ function initLogin() {
       });
   });
 
-  // ไม่จำ session — ล้าง token ที่อาจค้างจากเวอร์ชันก่อน ให้ถามรหัสทุกครั้ง
-  try { localStorage.removeItem('cctv_token'); sessionStorage.removeItem('cctv_token'); } catch (e) {}
+  try { localStorage.removeItem('cctv_token'); } catch (e) {}
+  // กด refresh เบราว์เซอร์แล้วไม่ต้องล็อกอินใหม่ (token ยังอยู่ในแท็บนี้)
+  var saved = null;
+  try { saved = sessionStorage.getItem('cctv_token'); } catch (e) {}
+  if (saved) {
+    STATE.token = saved;
+    bootstrap().catch(function () {
+      STATE.token = null;
+      try { sessionStorage.removeItem('cctv_token'); } catch (e) {}
+    });
+  }
 }
 
 function bootstrap() {
@@ -512,6 +527,13 @@ function bootstrap() {
     document.getElementById('app').classList.add('ready');
     buildNav();
     document.getElementById('logoutBtn').onclick = doLogout;
+    document.getElementById('refreshBtn').onclick = function (e) {
+      var b = e.currentTarget;
+      b.disabled = true; b.style.opacity = '.5';
+      Promise.resolve(go(STATE.view)).finally(function () {
+        setTimeout(function () { b.disabled = false; b.style.opacity = ''; }, 400);
+      });
+    };
     go('dashboard');
   });
 }
@@ -575,7 +597,7 @@ function go(view) {
     dashboard: viewDashboard, cameras: viewCameras, assets: viewAssets, inspect: viewInspections,
     maintenance: viewMaintenance, map: viewMap, export: viewExport, settings: viewSettings,
   })[view] || viewDashboard;
-  Promise.resolve().then(function () { return fn(host); }).catch(function (ex) {
+  return Promise.resolve().then(function () { return fn(host); }).catch(function (ex) {
     host.innerHTML = '<div class="empty">โหลดไม่สำเร็จ: ' + esc(ex.message || ex) + '</div>';
   });
 }
