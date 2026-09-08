@@ -1621,14 +1621,14 @@ function viewMap(host) {
       var mk = L.marker([c.latitude, c.longitude], { icon: _camIcon(c) });
       var sub = c.camera_subtype || labelOf('camera_type', c.camera_type);
       mk.bindPopup(
-        '<div style="text-align:center">' +
+        '<div style="text-align:center;line-height:1.35">' +
         '<b>' + esc(c.camera_id) + '</b>' +
-        '<div style="margin-top:4px;line-height:1.7">' +
+        '<div style="margin-top:3px">' +
         esc(c.location || '—') + '<br>' +
         esc(sub || '—') + '<br>' +
         esc(labelOf('status', c.status)) +
         '</div>' +
-        (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:6px">✎ แก้ไขพิกัด</a>' : '') +
+        (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:5px">✎ แก้ไขพิกัด</a>' : '') +
         '</div>'
       );
       if (isAdmin) {
