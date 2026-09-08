@@ -301,7 +301,7 @@
 'use strict';
 
 /* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
-var API_URL = 'https://script.google.com/macros/s/AKfycbzSsJdjYQYG6tFL2uanToMa-HiCsB-kPb0rrYXh2JvLNBY2qTLayALGwiQpm7F8J-Qp/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbxSU2uImYb9vO3L3KFC0KwrJjO5SXrMgI03qCcTsPqQsCBJYyhELOEbGCi2anDjzyZF/exec';
 
 /* ---------- สถานะรวม ---------- */
 var STATE = {
@@ -1007,9 +1007,19 @@ function openMaintEditForm(m) {
  * VIEW: Map
  * ========================================================== */
 var _map = null;
+/* จุดกึ่งกลางแผนที่ (ล็อคไว้) = 14° 52.480'N  100° 39.800'E
+ * 14 + 52.480/60 = 14.874667 ,  100 + 39.800/60 = 100.663333 */
+var MAP_CENTER = [14.874667, 100.663333];
+var MAP_ZOOM = 15;
+var MAP_CENTER_LABEL = "14°52.480'N 100°39.800'E";
+
 function viewMap(host) {
   host.innerHTML = '';
-  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'แผนที่จุดติดตั้ง' })]));
+  var head = el('div', { class: 'section-head' }, [
+    el('h2', { text: 'แผนที่จุดติดตั้ง' }),
+    el('button', { class: 'btn sm', title: 'กลับไปจุดกึ่งกลาง', onclick: function () { if (_map) _map.setView(MAP_CENTER, MAP_ZOOM); } }, ['◎ จุดกึ่งกลาง']),
+  ]);
+  host.appendChild(head);
   host.appendChild(el('div', { id: 'map' }));
   var legend = el('div', { class: 'chip-row mt' }, [
     el('span', { class: 'chip', html: '🟢 ใช้งานได้' }), el('span', { class: 'chip', html: '🔴 ใช้งานไม่ได้' }),
@@ -1026,21 +1036,22 @@ function viewMap(host) {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19, attribution: '© OpenStreetMap',
       }).addTo(_map);
-      if (!rows.length) {
-        _map.setView([13.7563, 100.5018], 6);
-        note.textContent = 'ยังไม่มีกล้องที่กรอกพิกัด GPS — เพิ่มพิกัดในหน้ากล้องเพื่อให้แสดงบนแผนที่';
-        return;
-      }
-      var group = [];
+
+      // ล็อคจุดกึ่งกลางเสมอ + หมุดอ้างอิงตรงกลาง
+      _map.setView(MAP_CENTER, MAP_ZOOM);
+      L.circleMarker(MAP_CENTER, { radius: 7, color: '#2563eb', weight: 3, fillColor: '#2563eb', fillOpacity: 0.15 })
+        .addTo(_map)
+        .bindPopup('<b>จุดกึ่งกลางฐานบิน</b><br>' + MAP_CENTER_LABEL);
+
       rows.forEach(function (c) {
         var color = c.status === 'USABLE' ? '#16a34a' : c.status === 'UNUSABLE' ? '#dc2626' : c.status === 'REPAIRING' ? '#d97706' : '#94a3b8';
         var mk = L.circleMarker([c.latitude, c.longitude], { radius: 8, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).addTo(_map);
         mk.bindPopup('<b>' + esc(c.camera_id) + '</b><br>' + esc(c.location) + '<br>' + esc(labelOf('camera_type', c.camera_type)) + ' · ' + esc(labelOf('status', c.status)));
-        mk.on('click', function () {});
-        group.push([c.latitude, c.longitude]);
       });
-      _map.fitBounds(group, { padding: [40, 40], maxZoom: 17 });
-      note.textContent = 'แสดง ' + rows.length + ' กล้องที่มีพิกัด';
+
+      note.textContent = rows.length
+        ? ('แสดง ' + rows.length + ' กล้องที่มีพิกัด · กึ่งกลาง ' + MAP_CENTER_LABEL)
+        : ('ยังไม่มีกล้องที่กรอกพิกัด GPS — กึ่งกลางล็อกที่ ' + MAP_CENTER_LABEL);
     }, 50);
   });
 }
