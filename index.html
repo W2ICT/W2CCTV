@@ -108,14 +108,14 @@
   /* ================= Bottom nav (มือถือ) ================= */
   .botnav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-    display: grid; grid-template-columns: repeat(5, 1fr);
+    display: grid; grid-template-columns: repeat(6, 1fr);
     background: var(--surface); border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
   }
   .botnav button {
     border: 0; background: transparent; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    min-height: var(--nav-h); padding: 6px 2px; color: var(--text-dim); font-size: .7rem;
+    min-height: var(--nav-h); padding: 6px 1px; color: var(--text-dim); font-size: .66rem;
   }
   .botnav button .ic { font-size: 1.3rem; line-height: 1; }
   .botnav button.active { color: var(--primary); font-weight: 700; }
@@ -319,7 +319,7 @@
 'use strict';
 
 /* >>> วาง URL ของ Apps Script Web App (Deploy ▸ Web app ▸ /exec) ที่นี่ <<< */
-var API_URL = 'https://script.google.com/macros/s/AKfycbxSU2uImYb9vO3L3KFC0KwrJjO5SXrMgI03qCcTsPqQsCBJYyhELOEbGCi2anDjzyZF/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbzsKqwkIJ0c__EUTy4KtI2iVr114pMGRv6745GnJil8yQX9yNuB37L7mQZjUj6cSeR7/exec';
 
 /* ---------- สถานะรวม ---------- */
 var STATE = {
@@ -337,6 +337,7 @@ var TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.
 var NAV = [
   { id: 'dashboard',   label: 'ภาพรวม',  ic: '📊' },
   { id: 'cameras',     label: 'กล้อง',    ic: '📹' },
+  { id: 'assets',      label: 'พัสดุ',    ic: '📦' },
   { id: 'inspect',     label: 'ตรวจ',     ic: '📝' },
   { id: 'maintenance', label: 'ซ่อม',     ic: '🔧' },
   { id: 'map',         label: 'แผนที่',   ic: '🗺️' },
@@ -579,7 +580,7 @@ function go(view) {
   host.innerHTML = '<div class="empty"><span class="spinner"></span> กำลังโหลด…</div>';
   window.scrollTo(0, 0);
   var fn = ({
-    dashboard: viewDashboard, cameras: viewCameras, inspect: viewInspections,
+    dashboard: viewDashboard, cameras: viewCameras, assets: viewAssets, inspect: viewInspections,
     maintenance: viewMaintenance, map: viewMap, export: viewExport, settings: viewSettings,
   })[view] || viewDashboard;
   Promise.resolve().then(function () { return fn(host); }).catch(function (ex) {
@@ -858,6 +859,209 @@ function selectFromLookup(list, val) {
   return s;
 }
 
+
+/* ============================================================
+ * VIEW: Assets (ทะเบียนพัสดุ)
+ * ========================================================== */
+var AST_FILTER = { q: '', category: '', grp: '', location: '', status: '' };
+var AST_MODE = 'list'; // 'list' | 'summary'
+
+function assetStatusBadge(code) {
+  var c = code === 'NORMAL' ? 'var(--ok)'
+        : (code === 'DAMAGED' || code === 'LOST') ? 'var(--bad)'
+        : code === 'REPAIRING' ? 'var(--warn)' : 'var(--text-dim)';
+  return '<span class="badge" style="background:transparent;border:1px solid ' + c + ';color:' + c + '">' +
+    esc(labelOf('asset_status', code)) + '</span>';
+}
+
+function viewAssets(host) {
+  host.innerHTML = '';
+  var head = el('div', { class: 'section-head' }, [ el('h2', { text: 'ทะเบียนพัสดุ' }) ]);
+  var seg = el('div', { class: 'role-toggle', style: 'max-width:260px;margin:0' }, [
+    el('button', { type: 'button', class: 'role-opt' + (AST_MODE === 'list' ? ' active' : ''), onclick: function () { AST_MODE = 'list'; go('assets'); } }, ['รายชิ้น']),
+    el('button', { type: 'button', class: 'role-opt' + (AST_MODE === 'summary' ? ' active' : ''), onclick: function () { AST_MODE = 'summary'; go('assets'); } }, ['สรุป']),
+  ]);
+  head.appendChild(seg);
+  if (STATE.role === 'admin' && AST_MODE === 'list') {
+    head.appendChild(el('button', { class: 'btn primary sm', onclick: function () { openAssetForm(null); } }, ['+ เพิ่มพัสดุ']));
+  }
+  host.appendChild(head);
+
+  if (AST_MODE === 'summary') {
+    host.appendChild(el('div', { id: 'astBox' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
+    return api('assets.summary').then(function (d) { renderAssetSummary(document.getElementById('astBox'), d); });
+  }
+
+  var f = el('div', { class: 'filters' });
+  f.appendChild(el('input', { type: 'search', placeholder: 'ค้นหา รหัส/หมายเลขพัสดุ/ชื่อ/SN/จุดติดตั้ง', 'data-filter': 'q', value: AST_FILTER.q, oninput: debounce(function (e) { AST_FILTER.q = e.target.value; reloadAssets(); }, 300) }));
+  f.appendChild(astFilterSelect('category', 'ทุกประเภท', 'asset_category'));
+  f.appendChild(astFilterSelect('grp', 'ทุกหมวด', 'asset_group'));
+  f.appendChild(astFilterSelect('location', 'ทุกจุดติดตั้ง', 'location'));
+  f.appendChild(astFilterSelect('status', 'ทุกสถานะ', 'asset_status'));
+  host.appendChild(f);
+  host.appendChild(el('div', { id: 'astResult' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
+  return reloadAssets();
+}
+
+function astFilterSelect(key, allLabel, listName) {
+  var s = el('select', { 'data-filter': key, onchange: function (e) { AST_FILTER[key] = e.target.value; reloadAssets(); } });
+  s.appendChild(el('option', { value: '', text: allLabel }));
+  optionsFor(listName).forEach(function (o) {
+    var op = el('option', { value: o.value, text: o.label });
+    if (AST_FILTER[key] === o.value) op.selected = true;
+    s.appendChild(op);
+  });
+  return s;
+}
+
+function reloadAssets() {
+  var box = document.getElementById('astResult');
+  if (!box) return Promise.resolve();
+  return api('assets.list', { filters: AST_FILTER }).then(function (rows) {
+    box.innerHTML = '';
+    var totQty = rows.reduce(function (n, a) { return n + (a.qty || 0); }, 0);
+    box.appendChild(el('p', { class: 'muted', text: 'พบ ' + rows.length + ' รายการ · รวม ' + totQty.toLocaleString('th-TH') + ' หน่วย' }));
+    if (!rows.length) { box.appendChild(el('div', { class: 'empty', text: 'ไม่พบข้อมูล' })); return; }
+
+    var mob = el('div', { class: 'list only-mobile' });
+    rows.forEach(function (a) {
+      mob.appendChild(el('div', { class: 'row-card', onclick: function () { openAssetDetail(a.asset_id); } }, [
+        el('div', { class: 'r1', html: '<span class="id">' + esc(a.asset_id) + '</span> ' + assetStatusBadge(a.status) }),
+        el('div', { class: 'sub', text: a.name }),
+        el('div', { class: 'sub', text: (a.location || 'คลัง') + ' · ' + a.qty + ' ' + a.unit + (a.serial_no ? ' · SN ' + a.serial_no : '') }),
+      ]));
+    });
+    box.appendChild(mob);
+
+    var wrap = el('div', { class: 'table-wrap only-desktop' });
+    var t = el('table', { class: 'data' });
+    t.innerHTML = '<thead><tr><th>รหัส</th><th>หมายเลขพัสดุ</th><th>หมวด</th><th>ชนิด</th><th>ชื่อพัสดุ</th><th>จำนวน</th><th>จุดติดตั้ง</th><th>สถานะ</th></tr></thead>';
+    var tb = el('tbody');
+    rows.forEach(function (a) {
+      var tr = el('tr', { onclick: function () { openAssetDetail(a.asset_id); } });
+      tr.innerHTML = '<td><strong>' + esc(a.asset_id) + '</strong></td><td class="muted">' + esc(a.psu_no) + '</td><td>' + esc(a.grp) +
+        '</td><td>' + esc(a.kind) + '</td><td>' + esc(a.name) + '</td><td>' + a.qty + ' ' + esc(a.unit) +
+        '</td><td>' + esc(a.location || '—') + '</td><td>' + assetStatusBadge(a.status) + '</td>';
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
+  });
+}
+
+function openAssetDetail(id) {
+  var body = el('div', {}, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]);
+  openSheet('พัสดุ ' + id, body);
+  api('assets.get', { asset_id: id }).then(function (a) {
+    body.innerHTML = '';
+    var dl = el('dl', { class: 'kv' });
+    [['สถานะ', '#'], ['หมายเลขพัสดุ', a.psu_no || '—'], ['ประเภท', a.category || '—'], ['หมวด', a.grp || '—'],
+     ['ชนิด', a.kind || '—'], ['ชื่อพัสดุ', a.name], ['SN', a.serial_no || '—'],
+     ['จำนวน', a.qty + ' ' + a.unit], ['จุดติดตั้ง', a.location || 'คลัง/ยังไม่ระบุ'],
+     ['หมายเหตุ', a.note || '—'], ['แก้ไขล่าสุด', fmtDateTime(a.updated_at) + ' (' + a.updated_by + ')']]
+      .forEach(function (p) {
+        dl.appendChild(el('dt', { text: p[0] }));
+        dl.appendChild(el('dd', { html: p[0] === 'สถานะ' ? assetStatusBadge(a.status) : esc(p[1]) }));
+      });
+    body.appendChild(dl);
+    if (STATE.role === 'admin') {
+      body.appendChild(el('div', { class: 'chip-row mt' }, [
+        el('button', { class: 'btn sm', onclick: function () { openAssetForm(a); } }, ['✏️ แก้ไข']),
+        el('button', { class: 'btn sm danger', onclick: function () {
+          if (!confirm('ลบพัสดุ ' + a.asset_id + ' ?')) return;
+          api('assets.delete', { asset_id: a.asset_id }).then(function () { toast('ลบแล้ว'); closeSheet(); reloadAssets(); })
+            .catch(function (ex) { alert(ex.message); });
+        } }, ['🗑️ ลบ']),
+      ]));
+    }
+  }).catch(function (ex) { body.innerHTML = '<div class="empty">' + esc(ex.message) + '</div>'; });
+}
+
+function openAssetForm(asset) {
+  var isEdit = !!asset;
+  var f = el('div', {});
+  var psu = el('input', { type: 'text', placeholder: 'หมายเลขพัสดุ', value: asset ? asset.psu_no : '' });
+  var cat = selectFromLookup('asset_category', asset ? asset.category : 'Hardware');
+  var grp = el('input', { type: 'text', placeholder: 'หมวด เช่น CCTV, Network Equipment', value: asset ? asset.grp : '' });
+  var kind = el('input', { type: 'text', placeholder: 'ชนิด เช่น Dome Camera', value: asset ? asset.kind : '' });
+  var name = el('textarea', { placeholder: 'ชื่อพัสดุ' }, [asset ? asset.name : '']);
+  var sn = el('input', { type: 'text', placeholder: 'Serial Number', value: asset ? asset.serial_no : '' });
+  var qty = el('input', { type: 'number', step: 'any', value: asset ? asset.qty : 1 });
+  var unit = el('input', { type: 'text', placeholder: 'หน่วยนับ', value: asset ? asset.unit : 'EA' });
+  var loc = selectFromLookup('location', asset ? asset.location : '');
+  var status = selectFromLookup('asset_status', asset ? asset.status : 'NORMAL');
+  var note = el('textarea', { placeholder: 'หมายเหตุ' }, [asset ? asset.note : '']);
+
+  f.appendChild(fieldWrap('ชื่อพัสดุ', name, true));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('หมายเลขพัสดุ', psu), fieldWrap('ประเภท', cat)]));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('หมวด', grp), fieldWrap('ชนิด', kind)]));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('จำนวน', qty), fieldWrap('หน่วยนับ', unit)]));
+  f.appendChild(fieldWrap('SN', sn));
+  f.appendChild(el('div', { class: 'field-row' }, [fieldWrap('จุดติดตั้ง', loc), fieldWrap('สถานะ', status)]));
+  f.appendChild(fieldWrap('หมายเหตุ', note));
+
+  f.appendChild(el('button', { class: 'btn primary block mt', text: isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มพัสดุ', onclick: function (e) {
+    var data = {
+      psu_no: psu.value, category: cat.value, grp: grp.value, kind: kind.value, name: name.value,
+      serial_no: sn.value, qty: qty.value, unit: unit.value, location: loc.value, status: status.value, note: note.value,
+    };
+    busy(e.target, true);
+    var pr = isEdit ? api('assets.update', { asset_id: asset.asset_id, data: data }) : api('assets.create', { data: data });
+    pr.then(function () { toast(isEdit ? 'บันทึกแล้ว' : 'เพิ่มพัสดุแล้ว'); closeSheet(); reloadAssets(); })
+      .catch(function (ex) { busy(e.target, false, isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มพัสดุ'); alert(ex.message); });
+  } }));
+  openSheet(isEdit ? ('แก้ไข ' + asset.asset_id) : 'เพิ่มพัสดุ', f, { sticky: true });
+}
+
+function renderAssetSummary(host, d) {
+  host.innerHTML = '';
+  var p = d.project || {};
+  var proj = el('div', { class: 'card' }, [
+    el('h3', { text: p.proj_name || 'โครงการ' }),
+    el('dl', { class: 'kv' }, [
+      el('dt', { text: 'ติดตั้ง' }), el('dd', { text: p.proj_install_period || '—' }),
+      el('dt', { text: 'จำนวนกล้อง' }), el('dd', { text: (p.proj_camera_count || '—') + ' กล้อง' }),
+      el('dt', { text: 'เครื่องบันทึก' }), el('dd', { text: p.proj_recorder || '—' }),
+      el('dt', { text: 'เก็บภาพ' }), el('dd', { text: p.proj_retention || '—' }),
+    ]),
+  ]);
+  host.appendChild(proj);
+
+  var k = d.kpi;
+  host.appendChild(el('div', { class: 'grid kpi mt' }, [
+    kpiCard(k.total_rows, 'รายการพัสดุ', 'accent'),
+    kpiCard(k.total_qty.toLocaleString('th-TH'), 'รวมจำนวน', ''),
+    kpiCard(k.damaged, 'ชำรุด/ซ่อม/สูญหาย', 'bad'),
+    kpiCard(k.locations, 'จุดติดตั้ง', ''),
+  ]));
+
+  host.appendChild(el('div', { class: 'grid cols2 mt' }, [
+    breakdownCard('แยกตามหมวด', d.by_group.map(function (g) { return { label: g.grp, count: g.rows }; }), 'count'),
+    breakdownCard('แยกตามสถานะ', d.by_status, 'count'),
+  ]));
+
+  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'แยกตามจุดติดตั้ง' })]));
+  var w1 = el('div', { class: 'table-wrap' });
+  var t1 = el('table', { class: 'data' });
+  t1.innerHTML = '<thead><tr><th>จุดติดตั้ง</th><th>รายการ</th><th>จำนวน</th></tr></thead>';
+  var b1 = el('tbody');
+  d.by_location.forEach(function (l) {
+    var tr = el('tr'); tr.innerHTML = '<td>' + esc(l.location) + '</td><td>' + l.rows + '</td><td>' + l.qty.toLocaleString('th-TH') + '</td>';
+    b1.appendChild(tr);
+  });
+  t1.appendChild(b1); w1.appendChild(t1); host.appendChild(w1);
+
+  host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'สรุปรายการ (BOM)' })]));
+  var w2 = el('div', { class: 'table-wrap' });
+  var t2 = el('table', { class: 'data' });
+  t2.innerHTML = '<thead><tr><th>ชื่อพัสดุ</th><th>จำนวน</th><th>หน่วย</th></tr></thead>';
+  var b2 = el('tbody');
+  d.bom.forEach(function (x) {
+    var tr = el('tr'); tr.innerHTML = '<td>' + esc(x.name) + '</td><td>' + x.qty.toLocaleString('th-TH') + '</td><td>' + esc(x.unit) + '</td>';
+    b2.appendChild(tr);
+  });
+  t2.appendChild(b2); w2.appendChild(t2); host.appendChild(w2);
+}
+
 /* ============================================================
  * VIEW: Inspections
  * ========================================================== */
@@ -1093,33 +1297,38 @@ function viewMap(host) {
     var note = document.getElementById('mapNote');
     setTimeout(function () {
       if (_map) { _map.remove(); _map = null; }
-      _map = L.map('map', { zoomControl: true });
+      _map = L.map('map', { zoomControl: true, maxZoom: 22 });
 
-      // ---- ชั้นแผนที่ฐาน (base layers) ----
-      var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 21, attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+      var GOOGLE_SUBS = ['mt0', 'mt1', 'mt2', 'mt3'];
+      // ---- ชั้นแผนที่ฐาน (base layers) — Google ซูมได้ลึกกว่า ----
+      var gSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google',
       });
-      var street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, attribution: '© OpenStreetMap',
+      var gHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Imagery © Google',
       });
-      var topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-        maxZoom: 17, attribution: '© OpenTopoMap',
+      var gStreet = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        subdomains: GOOGLE_SUBS, maxZoom: 22, maxNativeZoom: 21, attribution: 'Map data © Google',
       });
-      // ---- ชั้นทับ (overlay) ----
-      var labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 21, opacity: 0.9,
+      var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 22, maxNativeZoom: 19, attribution: 'Tiles © Esri, Maxar, Earthstar Geographics',
       });
-      var roads = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 21, opacity: 0.9,
+      var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22, maxNativeZoom: 19, attribution: '© OpenStreetMap',
       });
 
+      var bases = {
+        'ดาวเทียม (Google)': gSat,
+        'ดาวเทียม+ป้ายชื่อ (Google)': gHybrid,
+        'แผนที่ถนน (Google)': gStreet,
+        'ดาวเทียม (Esri)': esriSat,
+        'แผนที่ถนน (OSM)': osm,
+      };
       var saved;
       try { saved = localStorage.getItem('cctv_maplayer'); } catch (e) {}
-      var bases = { 'ภาพถ่ายดาวเทียม': sat, 'แผนที่ถนน (OSM)': street, 'แผนที่ภูมิประเทศ': topo };
-      (bases[saved] || sat).addTo(_map);
-      labels.addTo(_map);
+      (bases[saved] || gSat).addTo(_map);
 
-      L.control.layers(bases, { 'ชื่อสถานที่': labels, 'ถนน/ทางหลวง': roads }, { collapsed: true, position: 'topright' }).addTo(_map);
+      L.control.layers(bases, null, { collapsed: true, position: 'bottomleft' }).addTo(_map);
       _map.on('baselayerchange', function (e) {
         try { localStorage.setItem('cctv_maplayer', e.name); } catch (err) {}
       });
@@ -1152,7 +1361,7 @@ function viewExport(host) {
   host.appendChild(el('div', { class: 'section-head' }, [el('h2', { text: 'ส่งออกข้อมูล' })]));
   host.appendChild(el('p', { class: 'muted', text: 'ดาวน์โหลดเป็นไฟล์ CSV (เปิดใน Excel / Google Sheets ได้ รองรับภาษาไทย)' }));
   var box = el('div', { class: 'list' });
-  [['cameras', '📹 ทะเบียนกล้อง'], ['inspections', '📝 บันทึกการตรวจ'], ['maintenance', '🔧 บันทึกการซ่อม']].forEach(function (p) {
+  [['cameras', '📹 ทะเบียนกล้อง'], ['assets', '📦 ทะเบียนพัสดุ'], ['inspections', '📝 บันทึกการตรวจ'], ['maintenance', '🔧 บันทึกการซ่อม']].forEach(function (p) {
     box.appendChild(el('button', { class: 'btn block', onclick: function (e) {
       busy(e.target, true);
       api('export.csv', { entity: p[0] }).then(function (d) {
