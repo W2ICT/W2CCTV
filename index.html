@@ -1621,13 +1621,15 @@ function viewMap(host) {
       var mk = L.marker([c.latitude, c.longitude], { icon: _camIcon(c) });
       var sub = c.camera_subtype || labelOf('camera_type', c.camera_type);
       mk.bindPopup(
+        '<div style="text-align:center">' +
         '<b>' + esc(c.camera_id) + '</b>' +
-        '<div style="margin-top:4px;line-height:1.6">' +
-        'สถานที่: ' + esc(c.location || '—') + '<br>' +
-        'ชนิดย่อย: ' + esc(sub || '—') + '<br>' +
-        'สถานะ: ' + esc(labelOf('status', c.status)) +
+        '<div style="margin-top:4px;line-height:1.7">' +
+        esc(c.location || '—') + '<br>' +
+        esc(sub || '—') + '<br>' +
+        esc(labelOf('status', c.status)) +
         '</div>' +
-        (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:6px">✎ แก้ไขพิกัด</a>' : '')
+        (isAdmin ? '<a href="#" onclick="return false" data-editcam="1" style="display:inline-block;margin-top:6px">✎ แก้ไขพิกัด</a>' : '') +
+        '</div>'
       );
       if (isAdmin) {
         mk.on('popupopen', function (ev) {
