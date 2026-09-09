@@ -989,6 +989,32 @@ function miniMaintList(arr) {
  * VIEW: Cameras
  * ========================================================== */
 var CAM_FILTER = { q: '', unit: '', location: '', camera_type: '', camera_subtype: '', status: '' };
+var CAM_SORT = { key: 'camera_id', dir: 'asc' };
+function _camSortVal(c, key) {
+  if (key === 'updated_at') return c.updated_at || c.created_at || '';
+  if (key === 'camera_type') return labelOf('camera_type', c.camera_type) || '';
+  return String(c.camera_id || '');
+}
+function sortCamRows(rows) {
+  var k = CAM_SORT.key, sgn = CAM_SORT.dir === 'desc' ? -1 : 1;
+  return rows.slice().sort(function (a, b) {
+    var va = _camSortVal(a, k), vb = _camSortVal(b, k), r;
+    if (k === 'updated_at') r = String(va).localeCompare(String(vb));
+    else r = String(va).localeCompare(String(vb), 'th', { numeric: true, sensitivity: 'base' });
+    if (r === 0 && k !== 'camera_id') r = String(a.camera_id).localeCompare(String(b.camera_id), 'th', { numeric: true });
+    return r * sgn;
+  });
+}
+function sortSelect(kind) {
+  var opts = kind === 'dir'
+    ? [['asc', 'ก่อน → หลัง'], ['desc', 'หลัง → ก่อน']]
+    : [['camera_id', 'เรียงตามชื่อ'], ['updated_at', 'เรียงตามวันแก้ไข'], ['camera_type', 'เรียงตามประเภท']];
+  var s = el('select', { 'data-sort': kind, title: kind === 'dir' ? 'ทิศทางการเรียง' : 'เรียงลำดับตาม',
+    onchange: function (e) { CAM_SORT[kind === 'dir' ? 'dir' : 'key'] = e.target.value; reloadCameras(); } },
+    opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+  s.value = kind === 'dir' ? CAM_SORT.dir : CAM_SORT.key;
+  return s;
+}
 function setCameraFilter(k, v) {
   CAM_FILTER[k] = v;
   var sel = document.querySelector('[data-filter="' + k + '"]');
@@ -1010,6 +1036,8 @@ function viewCameras(host) {
   f.appendChild(filterSelect('camera_type', 'ทุกประเภท'));
   f.appendChild(filterSelect('camera_subtype', 'ทุกชนิดย่อย'));
   f.appendChild(filterSelect('status', 'ทุกสถานะ'));
+  f.appendChild(sortSelect('key'));
+  f.appendChild(sortSelect('dir'));
   host.appendChild(f);
 
   host.appendChild(el('div', { id: 'camResult' }, [el('div', { class: 'empty', html: '<span class="spinner"></span>' })]));
@@ -1082,6 +1110,7 @@ function reloadCameras(focusId) {
   var box = document.getElementById('camResult');
   if (!box) return Promise.resolve();
   return api('cameras.list', { filters: CAM_FILTER }).then(function (rows) {
+    rows = sortCamRows(rows);
     STATE.cameras = rows;
     _lastCamRows = rows;
     box.innerHTML = '';
